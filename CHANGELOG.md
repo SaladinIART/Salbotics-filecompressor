@@ -18,3 +18,4 @@
 - Added CP6.1 engine registry and CLI engine/format listing.
 - Added CP6.2 force optimize and Safe/Smart/Aggressive quality modes.
 - Added CP6.3 optional qpdf/mutool PDF cleanup before Ghostscript fallback.
+- Added CP6.4 optional ImageMagick routing for WebP/BMP/TIFF images.

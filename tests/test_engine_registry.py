@@ -64,14 +64,17 @@ class EngineRegistryTests(unittest.TestCase):
             root = Path(temp_dir)
             qpdf = root / "qpdf.exe"
             mutool = root / "mutool.exe"
+            magick = root / "magick.exe"
             qpdf.write_text("fake")
             mutool.write_text("fake")
+            magick.write_text("fake")
 
             with patch.dict(
                 "os.environ",
                 {
                     "SALBOTICS_FILECOMPRESSOR_QPDF": str(qpdf),
                     "SALBOTICS_FILECOMPRESSOR_MUTOOL": str(mutool),
+                    "SALBOTICS_FILECOMPRESSOR_MAGICK": str(magick),
                 },
                 clear=True,
             ), patch(
@@ -87,6 +90,7 @@ class EngineRegistryTests(unittest.TestCase):
 
         self.assertEqual(paths["qpdf"], qpdf)
         self.assertEqual(paths["mutool"], mutool)
+        self.assertEqual(paths["imagemagick"], magick)
 
     def test_supported_input_extensions_uses_available_engines(self) -> None:
         engines = [

@@ -20,7 +20,7 @@ from salbotics_filecompressor.compressor import (
     find_ghostscript,
     _image_candidates_for,
 )
-from salbotics_filecompressor.errors import GhostscriptNotFoundError
+from salbotics_filecompressor.errors import CompressionFailedError, GhostscriptNotFoundError
 
 
 def completed() -> subprocess.CompletedProcess[str]:
@@ -35,6 +35,10 @@ def output_path_from(command: list[str]) -> Path:
 
 
 def cleanup_output_path_from(command: list[str]) -> Path:
+    return Path(command[-1])
+
+
+def magick_output_path_from(command: list[str]) -> Path:
     return Path(command[-1])
 
 
@@ -462,6 +466,82 @@ class CompressionEngineTests(unittest.TestCase):
             self.assertEqual(output.suffix, ".pdf")
             self.assertEqual(output.read_bytes()[:4], b"%PDF")
             self.assertTrue(result.mode.startswith("image-pdf:"))
+
+    def test_webp_uses_imagemagick_for_same_format_output(self) -> None:
+        with tempfile.TemporaryDirectory() as temp_dir:
+            root = Path(temp_dir)
+            source = root / "graphic.webp"
+            output = root / "graphic_compressed.webp"
+            source.write_bytes(b"fake-webp" * 200)
+            commands: list[list[str]] = []
+
+            def fake_runner(command: list[str]) -> subprocess.CompletedProcess[str]:
+                commands.append(command)
+                magick_output_path_from(command).write_bytes(b"w" * 900)
+                return completed()
+
+            with patch(
+                "salbotics_filecompressor.compressor.find_magick",
+                return_value=Path("fake-magick"),
+            ):
+                result = compress_file(
+                    source,
+                    output,
+                    CompressionOptions(target_kb=1, image_output=IMAGE_OUTPUT_SAME_FORMAT),
+                    run_command=fake_runner,
+                )
+
+            self.assertEqual(result.status, "success")
+            self.assertEqual(result.mode, "magick:100%:q85")
+            self.assertEqual(output.suffix, ".webp")
+            self.assertEqual(output.stat().st_size, 900)
+            self.assertEqual(commands[0][0], "fake-magick")
+            self.assertIn("-strip", commands[0])
+            self.assertIn("-quality", commands[0])
+
+    def test_tiff_uses_imagemagick_for_pdf_output(self) -> None:
+        with tempfile.TemporaryDirectory() as temp_dir:
+            root = Path(temp_dir)
+            source = root / "scan.tiff"
+            output = root / "scan_compressed.pdf"
+            source.write_bytes(b"fake-tiff" * 200)
+
+            def fake_runner(command: list[str]) -> subprocess.CompletedProcess[str]:
+                magick_output_path_from(command).write_bytes(b"%PDF" + b"p" * 900)
+                return completed()
+
+            with patch(
+                "salbotics_filecompressor.compressor.find_magick",
+                return_value=Path("fake-magick"),
+            ):
+                result = compress_file(
+                    source,
+                    output,
+                    CompressionOptions(target_kb=1, image_output=IMAGE_OUTPUT_PDF),
+                    run_command=fake_runner,
+                )
+
+            self.assertEqual(result.status, "success")
+            self.assertEqual(result.mode, "magick-pdf:100%:q85")
+            self.assertEqual(output.suffix, ".pdf")
+            self.assertEqual(output.read_bytes()[:4], b"%PDF")
+
+    def test_extended_image_fails_clearly_without_imagemagick(self) -> None:
+        with tempfile.TemporaryDirectory() as temp_dir:
+            root = Path(temp_dir)
+            source = root / "graphic.webp"
+            output = root / "graphic_compressed.webp"
+            source.write_bytes(b"fake-webp" * 400)
+
+            with patch(
+                "salbotics_filecompressor.compressor.find_magick",
+                return_value=None,
+            ), self.assertRaisesRegex(CompressionFailedError, "ImageMagick is required"):
+                compress_file(
+                    source,
+                    output,
+                    CompressionOptions(target_kb=1, image_output=IMAGE_OUTPUT_SAME_FORMAT),
+                )
 
     def test_batch_processes_supported_files_and_skips_unsupported(self) -> None:
         with tempfile.TemporaryDirectory() as temp_dir:

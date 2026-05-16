@@ -4,7 +4,12 @@ import unittest
 from pathlib import Path
 from types import SimpleNamespace
 
-from salbotics_filecompressor.gui import format_batch_summary, format_result_summary, format_size
+from salbotics_filecompressor.gui import (
+    _filetype_pattern,
+    format_batch_summary,
+    format_result_summary,
+    format_size,
+)
 
 
 class GuiFormattingTests(unittest.TestCase):
@@ -55,6 +60,9 @@ class GuiFormattingTests(unittest.TestCase):
 
     def test_format_size(self) -> None:
         self.assertEqual(format_size(1536), "1.5 KB")
+
+    def test_filetype_pattern_sorts_supported_suffixes(self) -> None:
+        self.assertEqual(_filetype_pattern(frozenset({".webp", ".jpg"})), "*.jpg *.webp")
 
 
 if __name__ == "__main__":

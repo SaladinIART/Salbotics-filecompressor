@@ -11,7 +11,7 @@ from typing import Callable, Iterable, Mapping, Sequence
 
 from PIL import __version__ as PILLOW_VERSION
 
-from .compressor import find_ghostscript, find_mutool, find_qpdf
+from .compressor import find_ghostscript, find_magick, find_mutool, find_qpdf
 
 
 ENGINE_CAPABILITIES: Mapping[str, tuple[str, ...]] = {
@@ -24,15 +24,11 @@ ENGINE_CAPABILITIES: Mapping[str, tuple[str, ...]] = {
     "libreoffice": ("office_to_pdf",),
 }
 BUILTIN_IMAGE_INPUTS = (".jpg", ".jpeg", ".png")
-EXTENDED_IMAGE_INPUTS = (".bmp", ".gif", ".heic", ".heif", ".tif", ".tiff", ".webp")
+EXTENDED_IMAGE_INPUTS = (".bmp", ".tif", ".tiff", ".webp")
 OFFICE_INPUTS = (".doc", ".docx", ".odp", ".ods", ".odt", ".ppt", ".pptx", ".xls", ".xlsx")
 PDF_INPUTS = (".pdf",)
 SAME_IMAGE_OUTPUTS = (
-    ".avif",
     ".bmp",
-    ".gif",
-    ".heic",
-    ".heif",
     ".jpg",
     ".jpeg",
     ".png",
@@ -92,11 +88,14 @@ def detect_engines(*, which: Which | None = None) -> list[EngineInfo]:
             output_extensions=PDF_INPUTS,
             unavailable_note="Install MuPDF tools for optional PDF cleanup passes.",
         ),
-        _command_engine(
+        _optional_path_engine(
             name="imagemagick",
             display_name="ImageMagick",
-            executable_names=("magick",),
-            which=finder,
+            path_finder=(
+                find_magick
+                if which is None
+                else lambda: _find_executable(("magick",), finder)
+            ),
             version_args=("-version",),
             input_extensions=(*BUILTIN_IMAGE_INPUTS, *EXTENDED_IMAGE_INPUTS),
             output_extensions=(*SAME_IMAGE_OUTPUTS, ".pdf"),

@@ -15,6 +15,7 @@ from .compressor import (
     QUALITY_AGGRESSIVE,
     QUALITY_SAFE,
     QUALITY_SMART,
+    SUPPORTED_IMAGE_SUFFIXES,
     CompressionOptions,
     compress_batch,
     compress_file,
@@ -155,9 +156,12 @@ class SalboticsFileCompressorApp(tk.Tk):
             selected = filedialog.askopenfilename(
                 title="Choose file",
                 filetypes=[
-                    ("Supported files", "*.pdf *.jpg *.jpeg *.png"),
+                    (
+                        "Supported files",
+                        _filetype_pattern((".pdf", *SUPPORTED_IMAGE_SUFFIXES)),
+                    ),
                     ("PDF files", "*.pdf"),
-                    ("Image files", "*.jpg *.jpeg *.png"),
+                    ("Image files", _filetype_pattern(SUPPORTED_IMAGE_SUFFIXES)),
                     ("All files", "*.*"),
                 ],
             )
@@ -307,6 +311,10 @@ def format_batch_summary(results: list[object]) -> str:
 def format_size(size_bytes: int) -> str:
     """Format bytes as KB for GUI display."""
     return f"{size_bytes / 1024:.1f} KB"
+
+
+def _filetype_pattern(suffixes: tuple[str, ...] | frozenset[str]) -> str:
+    return " ".join(f"*{suffix}" for suffix in sorted(suffixes))
 
 
 def _single_output_path(

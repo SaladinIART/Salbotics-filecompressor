@@ -1,8 +1,8 @@
 # Salbotics File Compressor
 
 Salbotics File Compressor is a Windows desktop and CLI utility for compressing
-files toward a target size. The current release compresses PDFs plus JPG, JPEG,
-and PNG images.
+files toward a target size. The current release compresses PDFs, JPG/JPEG/PNG
+images, and optional ImageMagick-backed WebP/BMP/TIFF images.
 
 The app is built for local document workflows: pick a file or folder, choose a
 target size, and save the best compressed result the engine can produce.
@@ -12,7 +12,8 @@ target size, and save the best compressed result the engine can produce.
 Current support:
 
 - PDF input and PDF output
-- JPG/JPEG/PNG image input
+- JPG/JPEG/PNG image input through Pillow
+- WebP/BMP/TIFF image input through optional ImageMagick
 - same-format image output
 - image-to-PDF output
 - mixed folder batches
@@ -31,6 +32,7 @@ Current support:
 - Pillow, installed through package dependencies
 - Ghostscript installed separately for real PDF compression
 - Optional: qpdf and MuPDF mutool for safe PDF cleanup before Ghostscript
+- Optional: ImageMagick for WebP, BMP, TIF, and TIFF inputs
 
 Ghostscript can be found from `gswin64c`, `gswin32c`, `gs`, a normal Windows
 install under `C:\Program Files\gs`, or the `SALBOTICS_FILECOMPRESSOR_GS`
@@ -41,6 +43,9 @@ qpdf and mutool are detected from `PATH` or from
 `SALBOTICS_FILECOMPRESSOR_QPDF` and `SALBOTICS_FILECOMPRESSOR_MUTOOL`. They are
 not required; if missing or unable to produce a usable result, the app falls
 back to Ghostscript.
+
+ImageMagick is detected from `PATH` as `magick` or from
+`SALBOTICS_FILECOMPRESSOR_MAGICK`. It is only required for WebP/BMP/TIFF input.
 
 ## Install for Development
 
@@ -56,6 +61,7 @@ python -m pip install -e ".[dev]"
 salbotics-filecompressor input.pdf -o output.pdf --target-kb 499 --grayscale
 salbotics-filecompressor photo.jpg -o photo-small.jpg --target-kb 499
 salbotics-filecompressor photo.png -o photo.pdf --image-output pdf
+salbotics-filecompressor graphic.webp -o graphic-small.webp --target-kb 499
 salbotics-filecompressor screenshot.png -o screenshot-small.png --force-optimize --quality-mode smart
 salbotics-filecompressor --batch-folder "C:\Files" --output-dir "C:\Compressed" --target-kb 499
 salbotics-filecompressor --list-engines
@@ -74,8 +80,8 @@ to optimize them anyway.
 `--list-engines` shows detected local engines such as Pillow, Ghostscript,
 qpdf, MuPDF mutool, ImageMagick, libvips, and LibreOffice. qpdf and mutool are
 used as optional safe PDF cleanup passes before Ghostscript when available.
-ImageMagick, libvips, and LibreOffice are discovery-only for future
-checkpoints.
+ImageMagick is used for optional WebP/BMP/TIFF image compression. libvips and
+LibreOffice are discovery-only for future checkpoints.
 
 For local source runs without installing entry points:
 
@@ -144,6 +150,6 @@ Ghostscript is developed and licensed by Artifex Software, Inc. Ghostscript is
 not bundled with this project, and this project is not endorsed by Artifex.
 Optional PDF cleanup can use qpdf or MuPDF mutool when installed locally.
 
-Image compression uses Pillow.
+Image compression uses Pillow and optional ImageMagick.
 
 See `CREDITS.md` for attribution and license notes.

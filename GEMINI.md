@@ -8,7 +8,7 @@ file.
 
 ## Current Checkpoint
 
-CP6.3 added optional qpdf/mutool PDF cleanup:
+CP6.4 added optional ImageMagick image routing:
 
 - project root: `C:\Users\salbot01\Salbotics\Salbotics-filecompressor`
 - Python package: `salbotics_filecompressor`
@@ -25,8 +25,11 @@ CP6.3 added optional qpdf/mutool PDF cleanup:
 - PDF routing now tries qpdf cleanup, then mutool cleanup, then Ghostscript.
 - qpdf/mutool cleanup is skipped when grayscale is requested because those
   tools do not perform color conversion.
-- Image routing remains Pillow for JPG/JPEG/PNG.
-- ImageMagick, libvips, and LibreOffice are discovery-only until CP6.4+.
+- Image routing uses Pillow for JPG/JPEG/PNG.
+- Image routing uses optional ImageMagick for WebP/BMP/TIF/TIFF.
+- ImageMagick is detected from `PATH` as `magick` or from
+  `SALBOTICS_FILECOMPRESSOR_MAGICK`.
+- libvips and LibreOffice are discovery-only until CP6.5+.
 - Tests pass.
 
 ## Canonical Terms
@@ -37,6 +40,7 @@ CP6.3 added optional qpdf/mutool PDF cleanup:
 - `raster fallback`: render PDF pages as images, then rebuild an image-only PDF.
 - `PDF cleanup pass`: qpdf or mutool structural cleanup that may shrink a PDF
   without rasterizing or changing color.
+- `extended image route`: ImageMagick path for WebP/BMP/TIF/TIFF input.
 - `best effort`: save the best readable output even when target is missed.
 
 ## Decisions Locked
@@ -46,22 +50,25 @@ CP6.3 added optional qpdf/mutool PDF cleanup:
 - CLI plus GUI.
 - Ghostscript required for real PDF compression.
 - qpdf/mutool are optional and must not be required to run the app.
+- ImageMagick is optional and must not be required for JPG/JPEG/PNG or PDF work.
 - Ghostscript is credited to Artifex Software, Inc.; do not imply endorsement.
 - Ghostscript is not bundled.
 - Default target is 499 KB, editable by user.
 - Grayscale is opt-in.
 - Password-protected PDFs unsupported in v1.
-- JPG/JPEG/PNG supported in v1.
+- JPG/JPEG/PNG supported by built-in Pillow path.
+- WebP/BMP/TIF/TIFF supported when ImageMagick is installed.
 - Image output mode is user-selectable: same format or PDF.
 
-## Next Checkpoint: CP6.4
+## Next Checkpoint: CP6.5
 
-CP6.4 should add broader image-format routing through optional engines.
+CP6.5 should improve output quality decisions and avoid worse/larger outputs.
 
-## CP6.4 Master List
+## CP6.5 Master List
 
-- Choose whether ImageMagick or libvips is the first optional engine.
-- Add adapters for at least WebP/BMP/TIFF input.
-- Keep Pillow as the built-in JPG/JPEG/PNG path.
-- Add GUI file picker patterns for new formats only after runtime support exists.
-- Preserve current PDF and image tests.
+- Compare candidate size against original before saving warning outputs.
+- Consider keeping original/copy when best candidate is larger and force optimize
+  is off.
+- Add mode-specific notes for when target cannot be reached.
+- Preserve current qpdf/mutool/ImageMagick fallback tests.
+- Keep GUI simple; no new controls unless needed.

@@ -1,7 +1,8 @@
 # Credits
 
-Salbotics File Compressor uses Ghostscript for local PDF compression workflows
-and Pillow for local image processing.
+Salbotics File Compressor uses Ghostscript for local PDF compression workflows,
+Pillow for built-in image processing, and optional ImageMagick for extended
+image formats.
 
 ## Ghostscript and Artifex Software
 
@@ -29,3 +30,9 @@ Pillow is distributed under its own open-source license. See:
 
 - Pillow: https://python-pillow.org/
 - Pillow license: https://github.com/python-pillow/Pillow/blob/main/LICENSE
+
+ImageMagick is distributed under its own open-source license. It is optional
+and not bundled with this project. See:
+
+- ImageMagick: https://imagemagick.org/
+- ImageMagick license: https://imagemagick.org/script/license.php

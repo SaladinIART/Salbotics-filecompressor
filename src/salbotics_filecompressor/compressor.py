@@ -24,7 +24,9 @@ QUALITY_SMART = "smart"
 QUALITY_AGGRESSIVE = "aggressive"
 QUALITY_MODES = frozenset({QUALITY_SAFE, QUALITY_SMART, QUALITY_AGGRESSIVE})
 NEAR_TARGET_RATIO = 1.15
-SUPPORTED_IMAGE_SUFFIXES = frozenset({".jpg", ".jpeg", ".png"})
+BUILTIN_IMAGE_SUFFIXES = frozenset({".jpg", ".jpeg", ".png"})
+MAGICK_IMAGE_SUFFIXES = frozenset({".bmp", ".tif", ".tiff", ".webp"})
+SUPPORTED_IMAGE_SUFFIXES = frozenset({*BUILTIN_IMAGE_SUFFIXES, *MAGICK_IMAGE_SUFFIXES})
 SUPPORTED_INPUT_SUFFIXES = frozenset({".pdf", *SUPPORTED_IMAGE_SUFFIXES})
 SAFE_PRESERVE_TEXT_CANDIDATES: tuple[tuple[int, int], ...] = (
     (150, 85),
@@ -162,6 +164,14 @@ def find_mutool() -> Path | None:
     )
 
 
+def find_magick() -> Path | None:
+    """Locate ImageMagick executable when installed."""
+    return _find_optional_executable(
+        ("SALBOTICS_FILECOMPRESSOR_MAGICK",),
+        ("magick",),
+    )
+
+
 def _find_optional_executable(
     environment_names: Sequence[str],
     executable_names: Sequence[str],
@@ -272,7 +282,7 @@ def _invoke(command: Sequence[str], run_command: RunCommand) -> None:
     completed = run_command(command)
     if completed.returncode != 0:
         details = (completed.stderr or completed.stdout or "").strip()
-        raise CompressionFailedError(details or "Ghostscript command failed")
+        raise CompressionFailedError(details or "compression command failed")
 
 
 def _preserve_text_command(
@@ -363,6 +373,29 @@ def _mutool_cleanup_command(
         str(input_path),
         str(output_path),
     ]
+
+
+def _magick_image_command(
+    magick_path: Path,
+    input_path: Path,
+    output_path: Path,
+    scale: float,
+    quality: int,
+    grayscale: bool,
+) -> list[str]:
+    resize_percent = max(1, int(scale * 100))
+    command = [
+        str(magick_path),
+        str(input_path),
+        "-auto-orient",
+        "-strip",
+    ]
+    if grayscale:
+        command.extend(["-colorspace", "Gray"])
+    if resize_percent < 100:
+        command.extend(["-resize", f"{resize_percent}%"])
+    command.extend(["-quality", str(quality), str(output_path)])
+    return command
 
 
 def _build_pdf_from_images(
@@ -537,6 +570,58 @@ def _try_image_candidates(
                     )
     except OSError as exc:
         raise CompressionFailedError(f"could not read image: {exc}") from exc
+
+    return results
+
+
+def _try_magick_image_candidates(
+    input_path: Path,
+    work_dir: Path,
+    options: CompressionOptions,
+    original_size: int,
+    run_command: RunCommand,
+) -> list[_CandidateResult]:
+    magick = find_magick()
+    if magick is None:
+        raise CompressionFailedError(
+            f"ImageMagick is required for {input_path.suffix.lower()} input. "
+            "Install ImageMagick or set SALBOTICS_FILECOMPRESSOR_MAGICK."
+        )
+
+    results: list[_CandidateResult] = []
+    output_suffix = _image_output_suffix(input_path, options)
+    for scale, quality in _image_candidates_for(options, original_size):
+        scale_label = int(scale * 100)
+        candidate = work_dir / f"magick-{scale_label}-{quality}{output_suffix}"
+        try:
+            _invoke(
+                _magick_image_command(
+                    magick,
+                    input_path,
+                    candidate,
+                    scale,
+                    quality,
+                    options.grayscale,
+                ),
+                run_command,
+            )
+        except CompressionFailedError:
+            continue
+
+        size = _candidate_size(candidate)
+        if size is not None:
+            mode = "magick-pdf" if options.image_output == IMAGE_OUTPUT_PDF else "magick"
+            results.append(
+                _CandidateResult(
+                    path=candidate,
+                    mode=mode,
+                    dpi=scale_label,
+                    quality=quality,
+                    size_bytes=size,
+                )
+            )
+            if size <= options.target_bytes:
+                break
 
     return results
 
@@ -799,7 +884,10 @@ def _compress_image_file(
     source: Path,
     destination: Path,
     selected_options: CompressionOptions,
+    run_command: RunCommand | None = None,
 ) -> CompressionResult:
+    runner = run_command or _run_command
+
     _ensure_supported_input(source)
     destination.parent.mkdir(parents=True, exist_ok=True)
 
@@ -822,7 +910,16 @@ def _compress_image_file(
 
     with tempfile.TemporaryDirectory(prefix="salbotics-filecompressor-image-") as temp_dir:
         work_dir = Path(temp_dir)
-        candidates = _try_image_candidates(source, work_dir, selected_options, original_size)
+        if source.suffix.lower() in BUILTIN_IMAGE_SUFFIXES:
+            candidates = _try_image_candidates(source, work_dir, selected_options, original_size)
+        else:
+            candidates = _try_magick_image_candidates(
+                source,
+                work_dir,
+                selected_options,
+                original_size,
+                runner,
+            )
         selected, status, warning = _choose_candidate(candidates, selected_options.target_bytes)
         shutil.copy2(selected.path, destination)
 
@@ -867,7 +964,7 @@ def compress_file(
         )
 
     if _is_supported_image(source):
-        return _compress_image_file(source, destination, selected_options)
+        return _compress_image_file(source, destination, selected_options, run_command)
 
     _ensure_supported_input(source)
     raise CompressionFailedError(f"unsupported file type: {source.suffix or '(none)'}")
