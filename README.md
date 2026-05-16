@@ -113,8 +113,12 @@ $env:PYTHONPATH="src"
 python -m salbotics_filecompressor.cli --help
 python -c "from salbotics_filecompressor import CompressionOptions, CompressionResult; print('imports ok')"
 python -m unittest discover -s tests -v
+python scripts/smoke_images.py
 python scripts/smoke_real_pdf.py
 ```
+
+`scripts/smoke_images.py` creates temporary JPG/PNG samples, compresses them,
+and skips the optional ImageMagick path when ImageMagick is not installed.
 
 `scripts/smoke_real_pdf.py` creates a temporary sample PDF and compresses it
 with real Ghostscript. It prints `SKIP` when Ghostscript is not installed.
@@ -134,6 +138,10 @@ release\salbotics-filecompressor-windows.zip
 ```
 
 Generated folders are intentionally ignored by Git.
+
+After building, `scripts\verify_release_package.py` checks the release ZIP for
+the expected executable, docs, credits, and icon files. See
+`docs\RELEASE_CHECKLIST.md` for the full release checklist.
 
 ## Release Package
 

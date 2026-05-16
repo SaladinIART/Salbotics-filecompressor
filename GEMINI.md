@@ -8,7 +8,7 @@ file.
 
 ## Current Checkpoint
 
-CP6.5 added output quality safeguards:
+CP6.6 added validation scripts and release checklist:
 
 - project root: `C:\Users\salbot01\Salbotics\Salbotics-filecompressor`
 - Python package: `salbotics_filecompressor`
@@ -35,7 +35,15 @@ CP6.5 added output quality safeguards:
   best-effort candidate.
 - Image-to-PDF still saves the requested PDF output even when the converted PDF
   is larger than the original image.
-- libvips and LibreOffice are discovery-only until CP6.6+.
+- `scripts/smoke_images.py` creates temporary JPG/PNG samples and compresses
+  them through real Pillow paths.
+- `scripts/smoke_images.py` also runs an optional ImageMagick BMP smoke when
+  ImageMagick is installed, otherwise it skips cleanly.
+- `scripts/verify_release_package.py` validates the local Windows release ZIP.
+- `docs/RELEASE_CHECKLIST.md` documents release validation steps.
+- GitHub Actions runs unit tests and image smoke tests on Python 3.11, 3.12,
+  and 3.13.
+- libvips and LibreOffice are discovery-only until CP6.7+.
 - Tests pass.
 
 ## Canonical Terms
@@ -49,6 +57,8 @@ CP6.5 added output quality safeguards:
 - `extended image route`: ImageMagick path for WebP/BMP/TIF/TIFF input.
 - `keep original safeguard`: copy the original output when same-format
   compression would not reduce file size.
+- `smoke test`: generated-sample validation script that exercises installed
+  runtime paths without committing binary fixtures.
 - `best effort`: save the best readable output even when target is missed.
 
 ## Decisions Locked
@@ -69,14 +79,14 @@ CP6.5 added output quality safeguards:
 - Image output mode is user-selectable: same format or PDF.
 - Same-format compression should not save a larger file over a smaller original.
 
-## Next Checkpoint: CP6.6
+## Next Checkpoint: CP6.7
 
-CP6.6 should improve real-world validation and packaged smoke tests.
+CP6.7 should improve GUI feedback and result usability.
 
-## CP6.6 Master List
+## CP6.7 Master List
 
-- Add sample-driven smoke tests for image compression paths.
-- Add optional ImageMagick smoke test that skips cleanly when missing.
-- Add a release-build verification checklist.
-- Consider a small synthetic PDF/image fixture set if repo size remains tiny.
-- Preserve current unit tests and GUI simplicity.
+- Add clearer result notes for copy/kept-original/warning outcomes.
+- Consider an "Open output folder" button after successful compression.
+- Consider a compact engine status summary in the GUI without crowding the form.
+- Preserve current CLI behavior and smoke tests.
+- Keep GUI simple; avoid adding advanced compression controls.

@@ -11,6 +11,7 @@ try {
     python -m PyInstaller salbotics-filecompressor.spec --noconfirm --clean
     python -m PyInstaller salbotics-filecompressor-cli.spec --noconfirm --clean
     .\scripts\package_release.ps1
+    python .\scripts\verify_release_package.py
 }
 finally {
     $env:PYTHONPATH = $PreviousPythonPath

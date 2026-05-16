@@ -20,3 +20,4 @@
 - Added CP6.3 optional qpdf/mutool PDF cleanup before Ghostscript fallback.
 - Added CP6.4 optional ImageMagick routing for WebP/BMP/TIFF images.
 - Added CP6.5 safeguards to keep originals when compression would be larger.
+- Added CP6.6 image smoke tests and release package verification checklist.
