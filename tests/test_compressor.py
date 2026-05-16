@@ -15,6 +15,7 @@ from salbotics_filecompressor.compressor import (
     QUALITY_SAFE,
     QUALITY_SMART,
     CompressionOptions,
+    _CandidateResult,
     compress_batch,
     compress_file,
     find_ghostscript,
@@ -386,6 +387,58 @@ class CompressionEngineTests(unittest.TestCase):
             self.assertIn("target not reached", result.warning or "")
             self.assertGreater(output.stat().st_size, 0)
 
+    def test_pdf_keeps_original_when_best_candidate_is_larger(self) -> None:
+        with tempfile.TemporaryDirectory() as temp_dir:
+            root = Path(temp_dir)
+            source = root / "large.pdf"
+            output = root / "out.pdf"
+            source.write_bytes(b"x" * 5000)
+
+            def fake_runner(command: list[str]) -> subprocess.CompletedProcess[str]:
+                output_path_from(command).write_bytes(b"p" * 6000)
+                return completed()
+
+            result = compress_file(
+                source,
+                output,
+                CompressionOptions(target_kb=1, quality_mode=QUALITY_SAFE),
+                gs_path="fake-gs",
+                run_command=fake_runner,
+            )
+
+            self.assertEqual(result.status, "warning")
+            self.assertEqual(result.mode, "copy")
+            self.assertEqual(output.read_bytes(), source.read_bytes())
+            self.assertIn("kept original", result.warning or "")
+
+    def test_force_optimize_keeps_under_target_pdf_when_candidate_is_larger(self) -> None:
+        with tempfile.TemporaryDirectory() as temp_dir:
+            root = Path(temp_dir)
+            source = root / "small.pdf"
+            output = root / "out.pdf"
+            source.write_bytes(b"%PDF tiny")
+
+            def fake_runner(command: list[str]) -> subprocess.CompletedProcess[str]:
+                output_path_from(command).write_bytes(source.read_bytes() + b" larger")
+                return completed()
+
+            result = compress_file(
+                source,
+                output,
+                CompressionOptions(
+                    target_kb=499,
+                    force_optimize=True,
+                    quality_mode=QUALITY_SAFE,
+                ),
+                gs_path="fake-gs",
+                run_command=fake_runner,
+            )
+
+            self.assertEqual(result.status, "already-under-target")
+            self.assertEqual(result.mode, "copy")
+            self.assertEqual(output.read_bytes(), source.read_bytes())
+            self.assertIn("kept original", result.warning or "")
+
     def test_batch_continues_after_one_failed_pdf(self) -> None:
         with tempfile.TemporaryDirectory() as temp_dir:
             root = Path(temp_dir)
@@ -466,6 +519,38 @@ class CompressionEngineTests(unittest.TestCase):
             self.assertEqual(output.suffix, ".pdf")
             self.assertEqual(output.read_bytes()[:4], b"%PDF")
             self.assertTrue(result.mode.startswith("image-pdf:"))
+
+    def test_image_to_pdf_saves_requested_pdf_even_when_larger_than_original(self) -> None:
+        with tempfile.TemporaryDirectory() as temp_dir:
+            root = Path(temp_dir)
+            source = root / "photo.jpg"
+            output = root / "photo_compressed.pdf"
+            candidate = root / "candidate.pdf"
+            source.write_bytes(b"j" * 1000)
+            candidate.write_bytes(b"%PDF" + b"p" * 2000)
+
+            with patch(
+                "salbotics_filecompressor.compressor._try_image_candidates",
+                return_value=[
+                    _CandidateResult(
+                        path=candidate,
+                        mode="image-pdf",
+                        dpi=100,
+                        quality=85,
+                        size_bytes=candidate.stat().st_size,
+                    )
+                ],
+            ):
+                result = compress_file(
+                    source,
+                    output,
+                    CompressionOptions(target_kb=1, image_output=IMAGE_OUTPUT_PDF),
+                )
+
+            self.assertEqual(result.status, "warning")
+            self.assertEqual(result.mode, "image-pdf:100%:q85")
+            self.assertEqual(output.read_bytes(), candidate.read_bytes())
+            self.assertIn("target not reached with image-pdf", result.warning or "")
 
     def test_webp_uses_imagemagick_for_same_format_output(self) -> None:
         with tempfile.TemporaryDirectory() as temp_dir:
@@ -568,7 +653,7 @@ class CompressionEngineTests(unittest.TestCase):
                 [results[0].status, results[2].status],
                 ["already-under-target", "skipped"],
             )
-            self.assertIn(results[1].status, {"success", "warning"})
+            self.assertIn(results[1].status, {"success", "warning", "optimized"})
             self.assertTrue((output_dir / "doc_compressed.pdf").exists())
             self.assertTrue((output_dir / "photo_compressed.pdf").exists())
             self.assertFalse((output_dir / "notes.txt").exists())

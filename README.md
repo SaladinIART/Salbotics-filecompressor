@@ -77,6 +77,10 @@ Quality modes:
 By default, files already under the target are copied. Add `--force-optimize`
 to optimize them anyway.
 
+When no candidate can reach the target, the app saves the smallest readable
+candidate only if it is smaller than the original. If every same-format
+candidate is larger, it keeps the original and reports a warning.
+
 `--list-engines` shows detected local engines such as Pillow, Ghostscript,
 qpdf, MuPDF mutool, ImageMagick, libvips, and LibreOffice. qpdf and mutool are
 used as optional safe PDF cleanup passes before Ghostscript when available.

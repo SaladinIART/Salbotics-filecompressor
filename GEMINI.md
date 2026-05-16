@@ -8,7 +8,7 @@ file.
 
 ## Current Checkpoint
 
-CP6.4 added optional ImageMagick image routing:
+CP6.5 added output quality safeguards:
 
 - project root: `C:\Users\salbot01\Salbotics\Salbotics-filecompressor`
 - Python package: `salbotics_filecompressor`
@@ -29,7 +29,13 @@ CP6.4 added optional ImageMagick image routing:
 - Image routing uses optional ImageMagick for WebP/BMP/TIF/TIFF.
 - ImageMagick is detected from `PATH` as `magick` or from
   `SALBOTICS_FILECOMPRESSOR_MAGICK`.
-- libvips and LibreOffice are discovery-only until CP6.5+.
+- Same-format outputs keep the original when every compression candidate is
+  larger or equal.
+- Target-miss warnings include the selected mode that produced the saved
+  best-effort candidate.
+- Image-to-PDF still saves the requested PDF output even when the converted PDF
+  is larger than the original image.
+- libvips and LibreOffice are discovery-only until CP6.6+.
 - Tests pass.
 
 ## Canonical Terms
@@ -41,6 +47,8 @@ CP6.4 added optional ImageMagick image routing:
 - `PDF cleanup pass`: qpdf or mutool structural cleanup that may shrink a PDF
   without rasterizing or changing color.
 - `extended image route`: ImageMagick path for WebP/BMP/TIF/TIFF input.
+- `keep original safeguard`: copy the original output when same-format
+  compression would not reduce file size.
 - `best effort`: save the best readable output even when target is missed.
 
 ## Decisions Locked
@@ -59,16 +67,16 @@ CP6.4 added optional ImageMagick image routing:
 - JPG/JPEG/PNG supported by built-in Pillow path.
 - WebP/BMP/TIF/TIFF supported when ImageMagick is installed.
 - Image output mode is user-selectable: same format or PDF.
+- Same-format compression should not save a larger file over a smaller original.
 
-## Next Checkpoint: CP6.5
+## Next Checkpoint: CP6.6
 
-CP6.5 should improve output quality decisions and avoid worse/larger outputs.
+CP6.6 should improve real-world validation and packaged smoke tests.
 
-## CP6.5 Master List
+## CP6.6 Master List
 
-- Compare candidate size against original before saving warning outputs.
-- Consider keeping original/copy when best candidate is larger and force optimize
-  is off.
-- Add mode-specific notes for when target cannot be reached.
-- Preserve current qpdf/mutool/ImageMagick fallback tests.
-- Keep GUI simple; no new controls unless needed.
+- Add sample-driven smoke tests for image compression paths.
+- Add optional ImageMagick smoke test that skips cleanly when missing.
+- Add a release-build verification checklist.
+- Consider a small synthetic PDF/image fixture set if repo size remains tiny.
+- Preserve current unit tests and GUI simplicity.

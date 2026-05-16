@@ -767,6 +767,61 @@ def _format_candidate_mode(candidate: _CandidateResult) -> str:
     return f"{candidate.mode}:{candidate.dpi}dpi:q{candidate.quality}"
 
 
+def _format_image_candidate_mode(candidate: _CandidateResult) -> str:
+    if candidate.label:
+        return candidate.label
+    return f"{candidate.mode}:{candidate.dpi}%:q{candidate.quality}"
+
+
+def _target_miss_warning(candidate: _CandidateResult, mode: str) -> str:
+    return (
+        f"target not reached with {mode}; saved best readable candidate at "
+        f"{candidate.size_bytes} bytes"
+    )
+
+
+def _can_keep_original(
+    source: Path,
+    destination: Path,
+    candidate: _CandidateResult,
+    original_size: int,
+) -> bool:
+    return (
+        candidate.size_bytes >= original_size
+        and source.suffix.lower() == destination.suffix.lower()
+    )
+
+
+def _keep_original_result(
+    source: Path,
+    destination: Path,
+    options: CompressionOptions,
+    original_size: int,
+    selected_mode: str,
+) -> CompressionResult:
+    shutil.copy2(source, destination)
+    if original_size <= options.target_bytes:
+        status = "already-under-target"
+        warning = "force optimize produced no smaller file; kept original"
+    else:
+        status = "warning"
+        warning = (
+            f"target not reached; kept original because {selected_mode} "
+            f"was not smaller"
+        )
+
+    return CompressionResult(
+        input_path=source,
+        output_path=destination,
+        original_size_bytes=original_size,
+        final_size_bytes=destination.stat().st_size,
+        target_size_bytes=options.target_bytes,
+        mode="copy",
+        status=status,
+        warning=warning,
+    )
+
+
 def _default_output_path(input_path: Path, output_dir: Path, options: CompressionOptions) -> Path:
     suffix = _image_output_suffix(input_path, options)
     base = output_dir / f"{input_path.stem}_compressed{suffix}"
@@ -860,13 +915,28 @@ def _compress_pdf_file(
                 selected_options.target_bytes,
             )
 
+        selected_mode = _format_candidate_mode(selected)
+        if _can_keep_original(source, destination, selected, original_size):
+            return _keep_original_result(
+                source,
+                destination,
+                selected_options,
+                original_size,
+                selected_mode,
+            )
+
         shutil.copy2(selected.path, destination)
 
-    result_status = "optimized" if original_size <= selected_options.target_bytes else status
-    result_warning = warning
-    if result_status == "optimized" and destination.stat().st_size > original_size:
-        result_status = "warning"
-        result_warning = "force optimize produced a larger file; saved smallest candidate"
+    result_status = (
+        "optimized"
+        if original_size <= selected_options.target_bytes and status != "warning"
+        else status
+    )
+    result_warning = (
+        _target_miss_warning(selected, selected_mode)
+        if status == "warning"
+        else warning
+    )
 
     return CompressionResult(
         input_path=source,
@@ -874,7 +944,7 @@ def _compress_pdf_file(
         original_size_bytes=original_size,
         final_size_bytes=destination.stat().st_size,
         target_size_bytes=selected_options.target_bytes,
-        mode=_format_candidate_mode(selected),
+        mode=selected_mode,
         status=result_status,
         warning=result_warning,
     )
@@ -921,21 +991,35 @@ def _compress_image_file(
                 runner,
             )
         selected, status, warning = _choose_candidate(candidates, selected_options.target_bytes)
+        selected_mode = _format_image_candidate_mode(selected)
+        if _can_keep_original(source, destination, selected, original_size):
+            return _keep_original_result(
+                source,
+                destination,
+                selected_options,
+                original_size,
+                selected_mode,
+            )
+
         shutil.copy2(selected.path, destination)
 
-    mode = f"{selected.mode}:{selected.dpi}%:q{selected.quality}"
-    result_status = "optimized" if original_size <= selected_options.target_bytes else status
-    result_warning = warning
-    if result_status == "optimized" and destination.stat().st_size > original_size:
-        result_status = "warning"
-        result_warning = "force optimize produced a larger file; saved smallest candidate"
+    result_status = (
+        "optimized"
+        if original_size <= selected_options.target_bytes and status != "warning"
+        else status
+    )
+    result_warning = (
+        _target_miss_warning(selected, selected_mode)
+        if status == "warning"
+        else warning
+    )
     return CompressionResult(
         input_path=source,
         output_path=destination,
         original_size_bytes=original_size,
         final_size_bytes=destination.stat().st_size,
         target_size_bytes=selected_options.target_bytes,
-        mode=mode,
+        mode=selected_mode,
         status=result_status,
         warning=result_warning,
     )
