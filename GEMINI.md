@@ -8,7 +8,7 @@ file.
 
 ## Current Checkpoint
 
-CP3 added JPG/JPEG/PNG support:
+CP5 prepared the first Windows release:
 
 - project root: `C:\Users\salbot01\Salbotics\Salbotics-filecompressor`
 - Python package: `salbotics_filecompressor`
@@ -21,7 +21,10 @@ CP3 added JPG/JPEG/PNG support:
 - Unsupported batch files are reported as `skipped`.
 - CLI exposes `--image-output same-format|pdf`.
 - GUI exposes image output mode and supported file picker.
-- tests pass.
+- Build script forces project-local `PYTHONPATH` during PyInstaller runs.
+- Release ZIP path: `release\salbotics-filecompressor-windows.zip`.
+- Packaged CLI smoke passed for JPG, image-to-PDF, and PDF compression.
+- Tests pass.
 
 ## Canonical Terms
 
@@ -45,16 +48,14 @@ CP3 added JPG/JPEG/PNG support:
 - JPG/JPEG/PNG supported in v1.
 - Image output mode is user-selectable: same format or PDF.
 
-## Next Checkpoint: CP4
+## Next Checkpoint: CP6
 
-CP4 should initialize and publish the source-only GitHub repo.
+CP6 should improve release polish and user-facing packaging.
 
-## CP4 Master List
+## CP6 Master List
 
-- Confirm `.gitignore` keeps generated artifacts out.
-- Initialize Git if needed.
-- Work around invalid `GH_TOKEN` env var by using keyring auth or clearing it
-  for the publish command.
-- Create public GitHub repo under `SaladinIART/Salbotics-filecompressor`.
-- Push source-only main branch.
-- Confirm GitHub Actions starts.
+- Test GUI manually on real user PDFs/images.
+- Consider a proper installer instead of ZIP-only distribution.
+- Add screenshots or a short user guide.
+- Decide whether to bundle or detect Ghostscript more visibly in GUI.
+- Consider adding automated GUI smoke testing.

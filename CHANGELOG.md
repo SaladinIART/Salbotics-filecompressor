@@ -13,3 +13,5 @@
 - Added mixed folder batch behavior with skipped unsupported files.
 - Added CLI `--image-output same-format|pdf`.
 - Added GUI image output mode and supported file picker.
+- Added clean PyInstaller build script for Windows GUI and CLI executables.
+- Prepared first Windows release ZIP.

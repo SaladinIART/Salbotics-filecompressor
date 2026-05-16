@@ -100,6 +100,16 @@ release\salbotics-filecompressor-windows.zip
 
 Generated folders are intentionally ignored by Git.
 
+## Release Package
+
+The Windows ZIP contains:
+
+- `salbotics-filecompressor.exe`
+- `salbotics-filecompressor-cli.exe`
+- `README.md`
+- `CREDITS.md`
+- `salbotics-filecompressor.ico`
+
 ## Credits and Licensing
 
 Project code is MIT licensed. See `LICENSE`.
