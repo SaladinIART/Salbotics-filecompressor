@@ -22,3 +22,4 @@
 - Added CP6.5 safeguards to keep originals when compression would be larger.
 - Added CP6.6 image smoke tests and release package verification checklist.
 - Added CP6.7 GUI result notes, engine readiness summary, and output-folder button.
+- Added CP6.8 verified Windows EXE/ZIP build and packaged CLI smoke validation.

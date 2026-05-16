@@ -8,7 +8,7 @@ file.
 
 ## Current Checkpoint
 
-CP6.7 added GUI result usability improvements:
+CP6.8 built and verified a fresh Windows release package:
 
 - project root: `C:\Users\salbot01\Salbotics\Salbotics-filecompressor`
 - Python package: `salbotics_filecompressor`
@@ -47,7 +47,17 @@ CP6.7 added GUI result usability improvements:
 - GUI result rows show user-facing notes for target hits, copied originals,
   kept-original safeguards, warnings, skips, and failures.
 - GUI has an `Open output folder` button that enables after a successful run.
-- libvips and LibreOffice are discovery-only until CP6.8+.
+- Fresh local package was built with `scripts/build_exe.ps1`.
+- Package verifier passed for `release/salbotics-filecompressor-windows.zip`.
+- Frozen CLI smoke passed for `--list-engines`, `--list-formats`, and JPG
+  compression.
+- Current package sizes:
+  - `dist/salbotics-filecompressor.exe`: 29,375,040 bytes.
+  - `dist/salbotics-filecompressor-cli.exe`: 26,274,701 bytes.
+  - `release/salbotics-filecompressor-windows.zip`: 55,190,151 bytes.
+- Current ZIP SHA256:
+  `2DDB7787BB2F66E5196D015BC7C680815C43456C7C378E3C8E96416BA38136E5`.
+- libvips and LibreOffice are discovery-only until CP6.9+.
 - Tests pass.
 
 ## Canonical Terms
@@ -65,6 +75,8 @@ CP6.7 added GUI result usability improvements:
   runtime paths without committing binary fixtures.
 - `engine readiness summary`: compact GUI text that shows whether PDF and
   extended-image support are ready.
+- `packaged CLI smoke`: validation that runs the frozen CLI executable from
+  `dist/` instead of the source package.
 - `best effort`: save the best readable output even when target is missed.
 
 ## Decisions Locked
@@ -85,14 +97,14 @@ CP6.7 added GUI result usability improvements:
 - Image output mode is user-selectable: same format or PDF.
 - Same-format compression should not save a larger file over a smaller original.
 
-## Next Checkpoint: CP6.8
+## Next Checkpoint: CP6.9
 
-CP6.8 should build and verify a fresh Windows release package.
+CP6.9 should prepare public release notes and publish the next GitHub release.
 
-## CP6.8 Master List
+## CP6.9 Master List
 
-- Run full unit tests and smoke scripts.
-- Run `scripts/build_exe.ps1`.
-- Verify `release/salbotics-filecompressor-windows.zip`.
-- Smoke the CLI executable with `--list-engines`.
-- Update release notes/checklist with any packaging issues found.
+- Decide the release tag, likely `v0.2.0`.
+- Draft release notes from CP6.1 through CP6.8.
+- Attach `release/salbotics-filecompressor-windows.zip`.
+- Include the ZIP SHA256 and external engine notes.
+- Verify GitHub release page and repo README after publishing.
