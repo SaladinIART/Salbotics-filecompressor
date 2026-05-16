@@ -104,7 +104,9 @@ python -m salbotics_filecompressor.gui
 Choose single-file or folder mode, select an output folder, set the target KB,
 pick quality mode and image output mode, then run compression. Use Force
 optimize when a file is already under target but you still want a smaller
-output. Results appear in the table after processing.
+output. Results appear in the table after processing, with notes for target
+hits, copied originals, warnings, and failures. After a run, use **Open output
+folder** to inspect the generated files.
 
 ## Development Checks
 

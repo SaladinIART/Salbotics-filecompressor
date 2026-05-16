@@ -21,3 +21,4 @@
 - Added CP6.4 optional ImageMagick routing for WebP/BMP/TIFF images.
 - Added CP6.5 safeguards to keep originals when compression would be larger.
 - Added CP6.6 image smoke tests and release package verification checklist.
+- Added CP6.7 GUI result notes, engine readiness summary, and output-folder button.

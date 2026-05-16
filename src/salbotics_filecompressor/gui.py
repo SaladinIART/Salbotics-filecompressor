@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import queue
+import os
 import threading
 import tkinter as tk
 from pathlib import Path
@@ -20,6 +21,7 @@ from .compressor import (
     compress_batch,
     compress_file,
 )
+from .engine_registry import EngineInfo, detect_engines
 from .errors import FileCompressorError
 
 
@@ -46,6 +48,8 @@ class SalboticsFileCompressorApp(tk.Tk):
         self.force_optimize = tk.BooleanVar(value=False)
         self.quality_mode = tk.StringVar(value=QUALITY_SMART)
         self.status = tk.StringVar(value=READY_MESSAGE)
+        self.engine_status = tk.StringVar(value=format_engine_summary(detect_engines()))
+        self._last_output_dir: Path | None = None
         self._result_queue: queue.Queue[tuple[str, list[object] | str]] = queue.Queue()
 
         self._build()
@@ -117,13 +121,30 @@ class SalboticsFileCompressorApp(tk.Tk):
             variable=self.image_output,
         ).grid(row=0, column=1)
 
+        ttk.Label(root, textvariable=self.engine_status).grid(
+            row=8,
+            column=0,
+            columnspan=3,
+            sticky="w",
+            pady=(4, 0),
+        )
+
+        actions_frame = ttk.Frame(root)
+        actions_frame.grid(row=9, column=1, sticky="w", pady=(18, 8))
         self.compress_button = ttk.Button(root, text="Compress", command=self._compress)
-        self.compress_button.grid(row=8, column=1, sticky="w", pady=(18, 8))
+        self.compress_button.grid(row=0, column=0, sticky="w")
+        self.open_output_button = ttk.Button(
+            actions_frame,
+            text="Open output folder",
+            command=self._open_output_folder,
+            state="disabled",
+        )
+        self.open_output_button.grid(row=0, column=1, sticky="w", padx=(10, 0))
 
         self.progress = ttk.Progressbar(root, mode="indeterminate")
-        self.progress.grid(row=9, column=0, columnspan=3, sticky="ew", pady=(10, 8))
+        self.progress.grid(row=10, column=0, columnspan=3, sticky="ew", pady=(10, 8))
 
-        ttk.Label(root, textvariable=self.status).grid(row=10, column=0, columnspan=3, sticky="w")
+        ttk.Label(root, textvariable=self.status).grid(row=11, column=0, columnspan=3, sticky="w")
 
         columns = ("file", "status", "original", "final", "mode", "note")
         self.results_table = ttk.Treeview(root, columns=columns, show="headings", height=8)
@@ -146,8 +167,8 @@ class SalboticsFileCompressorApp(tk.Tk):
         for column in columns:
             self.results_table.heading(column, text=headings[column])
             self.results_table.column(column, width=widths[column], anchor="w")
-        self.results_table.grid(row=11, column=0, columnspan=3, sticky="nsew", pady=(10, 0))
-        root.rowconfigure(11, weight=1)
+        self.results_table.grid(row=12, column=0, columnspan=3, sticky="nsew", pady=(10, 0))
+        root.rowconfigure(12, weight=1)
 
     def _browse_input(self) -> None:
         if self.mode.get() == "folder":
@@ -179,8 +200,10 @@ class SalboticsFileCompressorApp(tk.Tk):
             return
 
         self._clear_results()
+        self._last_output_dir = None
         self.status.set("Compressing...")
         self.compress_button.configure(state="disabled")
+        self.open_output_button.configure(state="disabled")
         self.progress.start(12)
 
         thread = threading.Thread(target=self._compress_in_background, args=request, daemon=True)
@@ -251,12 +274,17 @@ class SalboticsFileCompressorApp(tk.Tk):
             results = list(payload) if isinstance(payload, list) else []
             summary = format_batch_summary(results)
             self.status.set(summary)
+            self._last_output_dir = Path(self.output_dir.get())
+            if self._last_output_dir.exists():
+                self.open_output_button.configure(state="normal")
             self._set_result_rows(results)
             messagebox.showinfo("Salbotics File Compressor", summary)
             return
 
         message = str(payload)
         self.status.set("Error")
+        self._last_output_dir = None
+        self.open_output_button.configure(state="disabled")
         self._clear_results()
         messagebox.showerror("Salbotics File Compressor", message)
 
@@ -276,22 +304,55 @@ class SalboticsFileCompressorApp(tk.Tk):
                     format_size(getattr(result, "original_size_bytes")),
                     format_size(getattr(result, "final_size_bytes")),
                     getattr(result, "mode"),
-                    getattr(result, "warning") or "",
+                    format_result_note(result),
                 ),
             )
+
+    def _open_output_folder(self) -> None:
+        if self._last_output_dir is None:
+            messagebox.showerror("Missing output", "No output folder is available yet.")
+            return
+        try:
+            open_folder(self._last_output_dir)
+        except OSError as exc:
+            messagebox.showerror("Salbotics File Compressor", str(exc))
 
 
 def format_result_summary(result: object) -> str:
     """Format one GUI result line."""
-    warning = getattr(result, "warning")
+    note = format_result_note(result)
     summary = (
         f"{getattr(result, 'input_path').name}: {getattr(result, 'status')} | "
         f"{format_size(getattr(result, 'original_size_bytes'))} -> "
         f"{format_size(getattr(result, 'final_size_bytes'))} | {getattr(result, 'mode')}"
     )
-    if warning:
-        summary += f" | {warning}"
+    if note:
+        summary += f" | {note}"
     return summary
+
+
+def format_result_note(result: object) -> str:
+    """Return a user-facing note for the result table."""
+    warning = getattr(result, "warning") or ""
+    status = getattr(result, "status")
+    mode = getattr(result, "mode")
+    if warning:
+        if "kept original" in warning:
+            return "Kept original; compression was not smaller."
+        return warning
+    if status == "already-under-target":
+        return "Already under target; copied original."
+    if status == "success":
+        return "Target reached."
+    if status == "optimized":
+        return "Optimized from an already under-target file."
+    if status == "skipped":
+        return "Unsupported file type."
+    if status == "failed":
+        return "Failed."
+    if mode == "copy":
+        return "Copied original."
+    return ""
 
 
 def format_batch_summary(results: list[object]) -> str:
@@ -313,8 +374,25 @@ def format_size(size_bytes: int) -> str:
     return f"{size_bytes / 1024:.1f} KB"
 
 
+def format_engine_summary(engines: list[EngineInfo]) -> str:
+    """Format compact GUI engine readiness text."""
+    by_name = {engine.name: engine for engine in engines}
+    ghostscript = by_name.get("ghostscript")
+    magick = by_name.get("imagemagick")
+    pdf_status = "PDF ready" if ghostscript and ghostscript.available else "PDF needs Ghostscript"
+    image_status = "Extended images ready" if magick and magick.available else "Extended images need ImageMagick"
+    return f"{pdf_status}. {image_status}."
+
+
 def _filetype_pattern(suffixes: tuple[str, ...] | frozenset[str]) -> str:
     return " ".join(f"*{suffix}" for suffix in sorted(suffixes))
+
+
+def open_folder(path: Path) -> None:
+    """Open a folder in Windows Explorer."""
+    if not path.exists():
+        raise OSError(f"output folder does not exist: {path}")
+    os.startfile(path)  # type: ignore[attr-defined]
 
 
 def _single_output_path(

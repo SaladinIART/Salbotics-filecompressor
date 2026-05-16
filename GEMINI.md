@@ -8,7 +8,7 @@ file.
 
 ## Current Checkpoint
 
-CP6.6 added validation scripts and release checklist:
+CP6.7 added GUI result usability improvements:
 
 - project root: `C:\Users\salbot01\Salbotics\Salbotics-filecompressor`
 - Python package: `salbotics_filecompressor`
@@ -43,7 +43,11 @@ CP6.6 added validation scripts and release checklist:
 - `docs/RELEASE_CHECKLIST.md` documents release validation steps.
 - GitHub Actions runs unit tests and image smoke tests on Python 3.11, 3.12,
   and 3.13.
-- libvips and LibreOffice are discovery-only until CP6.7+.
+- GUI now shows compact engine readiness text for Ghostscript and ImageMagick.
+- GUI result rows show user-facing notes for target hits, copied originals,
+  kept-original safeguards, warnings, skips, and failures.
+- GUI has an `Open output folder` button that enables after a successful run.
+- libvips and LibreOffice are discovery-only until CP6.8+.
 - Tests pass.
 
 ## Canonical Terms
@@ -59,6 +63,8 @@ CP6.6 added validation scripts and release checklist:
   compression would not reduce file size.
 - `smoke test`: generated-sample validation script that exercises installed
   runtime paths without committing binary fixtures.
+- `engine readiness summary`: compact GUI text that shows whether PDF and
+  extended-image support are ready.
 - `best effort`: save the best readable output even when target is missed.
 
 ## Decisions Locked
@@ -79,14 +85,14 @@ CP6.6 added validation scripts and release checklist:
 - Image output mode is user-selectable: same format or PDF.
 - Same-format compression should not save a larger file over a smaller original.
 
-## Next Checkpoint: CP6.7
+## Next Checkpoint: CP6.8
 
-CP6.7 should improve GUI feedback and result usability.
+CP6.8 should build and verify a fresh Windows release package.
 
-## CP6.7 Master List
+## CP6.8 Master List
 
-- Add clearer result notes for copy/kept-original/warning outcomes.
-- Consider an "Open output folder" button after successful compression.
-- Consider a compact engine status summary in the GUI without crowding the form.
-- Preserve current CLI behavior and smoke tests.
-- Keep GUI simple; avoid adding advanced compression controls.
+- Run full unit tests and smoke scripts.
+- Run `scripts/build_exe.ps1`.
+- Verify `release/salbotics-filecompressor-windows.zip`.
+- Smoke the CLI executable with `--list-engines`.
+- Update release notes/checklist with any packaging issues found.
