@@ -117,6 +117,7 @@ class _CandidateResult:
     dpi: int
     quality: int
     size_bytes: int
+    label: str | None = None
 
 
 def find_ghostscript() -> Path:
@@ -143,6 +144,41 @@ def find_ghostscript() -> Path:
         "Ghostscript not found. Install Ghostscript and ensure gswin64c is on PATH, "
         "or set SALBOTICS_FILECOMPRESSOR_GS to the executable path."
     )
+
+
+def find_qpdf() -> Path | None:
+    """Locate qpdf executable when installed."""
+    return _find_optional_executable(
+        ("SALBOTICS_FILECOMPRESSOR_QPDF",),
+        ("qpdf",),
+    )
+
+
+def find_mutool() -> Path | None:
+    """Locate MuPDF mutool executable when installed."""
+    return _find_optional_executable(
+        ("SALBOTICS_FILECOMPRESSOR_MUTOOL",),
+        ("mutool",),
+    )
+
+
+def _find_optional_executable(
+    environment_names: Sequence[str],
+    executable_names: Sequence[str],
+) -> Path | None:
+    for environment_name in environment_names:
+        configured = os.environ.get(environment_name)
+        if configured:
+            path = Path(configured)
+            if path.exists():
+                return path
+
+    for executable_name in executable_names:
+        found = shutil.which(executable_name)
+        if found:
+            return Path(found)
+
+    return None
 
 
 def _standard_windows_ghostscript_paths() -> list[Path]:
@@ -296,6 +332,36 @@ def _raster_command(
         f"-dJPEGQ={quality}",
         f"-sOutputFile={output_pattern}",
         str(input_path),
+    ]
+
+
+def _qpdf_cleanup_command(
+    qpdf_path: Path,
+    input_path: Path,
+    output_path: Path,
+) -> list[str]:
+    return [
+        str(qpdf_path),
+        "--linearize",
+        "--object-streams=generate",
+        "--stream-data=compress",
+        str(input_path),
+        str(output_path),
+    ]
+
+
+def _mutool_cleanup_command(
+    mutool_path: Path,
+    input_path: Path,
+    output_path: Path,
+) -> list[str]:
+    return [
+        str(mutool_path),
+        "clean",
+        "-gggg",
+        "-z",
+        str(input_path),
+        str(output_path),
     ]
 
 
@@ -510,6 +576,47 @@ def _try_preserve_text(
     return results
 
 
+def _try_pdf_cleanup(
+    input_path: Path,
+    work_dir: Path,
+    options: CompressionOptions,
+    run_command: RunCommand,
+) -> list[_CandidateResult]:
+    if options.grayscale:
+        return []
+
+    tools = (
+        ("qpdf-cleanup", find_qpdf(), _qpdf_cleanup_command),
+        ("mutool-cleanup", find_mutool(), _mutool_cleanup_command),
+    )
+    results: list[_CandidateResult] = []
+    for mode, tool_path, command_builder in tools:
+        if tool_path is None:
+            continue
+
+        candidate = work_dir / f"{mode}.pdf"
+        try:
+            _invoke(command_builder(tool_path, input_path, candidate), run_command)
+        except CompressionFailedError:
+            continue
+
+        size = _candidate_size(candidate)
+        if size is not None:
+            results.append(
+                _CandidateResult(
+                    path=candidate,
+                    mode=mode,
+                    dpi=0,
+                    quality=0,
+                    size_bytes=size,
+                    label=mode,
+                )
+            )
+            if size <= options.target_bytes:
+                break
+    return results
+
+
 def _try_raster(
     gs_path: Path,
     input_path: Path,
@@ -569,6 +676,12 @@ def _choose_candidate(
     return smallest, "warning", warning
 
 
+def _format_candidate_mode(candidate: _CandidateResult) -> str:
+    if candidate.label:
+        return candidate.label
+    return f"{candidate.mode}:{candidate.dpi}dpi:q{candidate.quality}"
+
+
 def _default_output_path(input_path: Path, output_dir: Path, options: CompressionOptions) -> Path:
     suffix = _image_output_suffix(input_path, options)
     base = output_dir / f"{input_path.stem}_compressed{suffix}"
@@ -610,7 +723,6 @@ def _compress_pdf_file(
     gs_path: str | Path | None,
 ) -> CompressionResult:
     runner = run_command or _run_command
-    ghostscript = Path(gs_path) if gs_path is not None else find_ghostscript()
 
     _ensure_pdf_input(source)
     destination.parent.mkdir(parents=True, exist_ok=True)
@@ -630,22 +742,39 @@ def _compress_pdf_file(
 
     with tempfile.TemporaryDirectory(prefix="salbotics-filecompressor-") as temp_dir:
         work_dir = Path(temp_dir)
-        candidates = _try_preserve_text(
-            ghostscript, source, work_dir, selected_options, runner, original_size
-        )
-
-        if (
-            selected_options.quality_mode != QUALITY_SAFE
-            and not any(
-                candidate.size_bytes <= selected_options.target_bytes
-                for candidate in candidates
-            )
+        candidates = _try_pdf_cleanup(source, work_dir, selected_options, runner)
+        if any(
+            candidate.size_bytes <= selected_options.target_bytes
+            for candidate in candidates
         ):
+            selected, status, warning = _choose_candidate(
+                candidates,
+                selected_options.target_bytes,
+            )
+        else:
+            ghostscript = Path(gs_path) if gs_path is not None else find_ghostscript()
             candidates.extend(
-                _try_raster(ghostscript, source, work_dir, selected_options, runner)
+                _try_preserve_text(
+                    ghostscript, source, work_dir, selected_options, runner, original_size
+                )
             )
 
-        selected, status, warning = _choose_candidate(candidates, selected_options.target_bytes)
+            if (
+                selected_options.quality_mode != QUALITY_SAFE
+                and not any(
+                    candidate.size_bytes <= selected_options.target_bytes
+                    for candidate in candidates
+                )
+            ):
+                candidates.extend(
+                    _try_raster(ghostscript, source, work_dir, selected_options, runner)
+                )
+
+            selected, status, warning = _choose_candidate(
+                candidates,
+                selected_options.target_bytes,
+            )
+
         shutil.copy2(selected.path, destination)
 
     result_status = "optimized" if original_size <= selected_options.target_bytes else status
@@ -660,7 +789,7 @@ def _compress_pdf_file(
         original_size_bytes=original_size,
         final_size_bytes=destination.stat().st_size,
         target_size_bytes=selected_options.target_bytes,
-        mode=f"{selected.mode}:{selected.dpi}dpi:q{selected.quality}",
+        mode=_format_candidate_mode(selected),
         status=result_status,
         warning=result_warning,
     )

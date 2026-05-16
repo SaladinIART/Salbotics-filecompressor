@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import unittest
+import tempfile
 from pathlib import Path
 from unittest.mock import patch
 
@@ -57,6 +58,35 @@ class EngineRegistryTests(unittest.TestCase):
             available,
             {"ghostscript", "imagemagick", "libreoffice", "libvips", "mutool", "qpdf"},
         )
+
+    def test_detect_engines_uses_configured_pdf_cleanup_paths(self) -> None:
+        with tempfile.TemporaryDirectory() as temp_dir:
+            root = Path(temp_dir)
+            qpdf = root / "qpdf.exe"
+            mutool = root / "mutool.exe"
+            qpdf.write_text("fake")
+            mutool.write_text("fake")
+
+            with patch.dict(
+                "os.environ",
+                {
+                    "SALBOTICS_FILECOMPRESSOR_QPDF": str(qpdf),
+                    "SALBOTICS_FILECOMPRESSOR_MUTOOL": str(mutool),
+                },
+                clear=True,
+            ), patch(
+                "salbotics_filecompressor.engine_registry.find_ghostscript",
+                side_effect=RuntimeError("missing"),
+            ), patch(
+                "salbotics_filecompressor.engine_registry._read_version",
+                return_value="tool 1.0",
+            ):
+                engines = detect_engines()
+
+        paths = {engine.name: engine.path for engine in engines}
+
+        self.assertEqual(paths["qpdf"], qpdf)
+        self.assertEqual(paths["mutool"], mutool)
 
     def test_supported_input_extensions_uses_available_engines(self) -> None:
         engines = [

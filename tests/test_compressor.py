@@ -34,6 +34,10 @@ def output_path_from(command: list[str]) -> Path:
     raise AssertionError("missing -sOutputFile")
 
 
+def cleanup_output_path_from(command: list[str]) -> Path:
+    return Path(command[-1])
+
+
 class CompressionEngineTests(unittest.TestCase):
     def test_target_bytes_uses_binary_kilobytes(self) -> None:
         self.assertEqual(CompressionOptions().target_bytes, 499 * 1024)
@@ -144,6 +148,154 @@ class CompressionEngineTests(unittest.TestCase):
             self.assertEqual(result.status, "warning")
             self.assertTrue(commands)
             self.assertTrue(all("-sDEVICE=pdfwrite" in command for command in commands))
+
+    def test_qpdf_cleanup_can_succeed_without_ghostscript(self) -> None:
+        with tempfile.TemporaryDirectory() as temp_dir:
+            root = Path(temp_dir)
+            source = root / "large.pdf"
+            output = root / "out.pdf"
+            source.write_bytes(b"x" * 5000)
+            commands: list[list[str]] = []
+
+            def fake_runner(command: list[str]) -> subprocess.CompletedProcess[str]:
+                commands.append(command)
+                cleanup_output_path_from(command).write_bytes(b"q" * 900)
+                return completed()
+
+            with patch(
+                "salbotics_filecompressor.compressor.find_qpdf",
+                return_value=Path("fake-qpdf"),
+            ), patch(
+                "salbotics_filecompressor.compressor.find_mutool",
+                return_value=None,
+            ), patch(
+                "salbotics_filecompressor.compressor.find_ghostscript",
+                side_effect=AssertionError("Ghostscript should not be needed"),
+            ):
+                result = compress_file(
+                    source,
+                    output,
+                    CompressionOptions(target_kb=1),
+                    run_command=fake_runner,
+                )
+
+            self.assertEqual(result.status, "success")
+            self.assertEqual(result.mode, "qpdf-cleanup")
+            self.assertEqual(output.stat().st_size, 900)
+            self.assertEqual(len(commands), 1)
+
+    def test_mutool_cleanup_runs_when_qpdf_misses_target(self) -> None:
+        with tempfile.TemporaryDirectory() as temp_dir:
+            root = Path(temp_dir)
+            source = root / "large.pdf"
+            output = root / "out.pdf"
+            source.write_bytes(b"x" * 5000)
+            commands: list[list[str]] = []
+
+            def fake_runner(command: list[str]) -> subprocess.CompletedProcess[str]:
+                commands.append(command)
+                target = cleanup_output_path_from(command)
+                if command[0] == "fake-qpdf":
+                    target.write_bytes(b"q" * 3000)
+                else:
+                    target.write_bytes(b"m" * 900)
+                return completed()
+
+            with patch(
+                "salbotics_filecompressor.compressor.find_qpdf",
+                return_value=Path("fake-qpdf"),
+            ), patch(
+                "salbotics_filecompressor.compressor.find_mutool",
+                return_value=Path("fake-mutool"),
+            ), patch(
+                "salbotics_filecompressor.compressor.find_ghostscript",
+                side_effect=AssertionError("Ghostscript should not be needed"),
+            ):
+                result = compress_file(
+                    source,
+                    output,
+                    CompressionOptions(target_kb=1),
+                    run_command=fake_runner,
+                )
+
+            self.assertEqual(result.status, "success")
+            self.assertEqual(result.mode, "mutool-cleanup")
+            self.assertEqual(output.stat().st_size, 900)
+            self.assertEqual([command[0] for command in commands], ["fake-qpdf", "fake-mutool"])
+
+    def test_pdf_cleanup_failure_falls_back_to_ghostscript(self) -> None:
+        with tempfile.TemporaryDirectory() as temp_dir:
+            root = Path(temp_dir)
+            source = root / "large.pdf"
+            output = root / "out.pdf"
+            source.write_bytes(b"x" * 5000)
+            commands: list[list[str]] = []
+
+            def fake_runner(command: list[str]) -> subprocess.CompletedProcess[str]:
+                commands.append(command)
+                if command[0] == "fake-qpdf":
+                    return subprocess.CompletedProcess(
+                        args=command,
+                        returncode=1,
+                        stdout="",
+                        stderr="qpdf failed",
+                    )
+
+                output_path_from(command).write_bytes(b"p" * 900)
+                return completed()
+
+            with patch(
+                "salbotics_filecompressor.compressor.find_qpdf",
+                return_value=Path("fake-qpdf"),
+            ), patch(
+                "salbotics_filecompressor.compressor.find_mutool",
+                return_value=None,
+            ):
+                result = compress_file(
+                    source,
+                    output,
+                    CompressionOptions(target_kb=1),
+                    gs_path="fake-gs",
+                    run_command=fake_runner,
+                )
+
+            self.assertEqual(result.status, "success")
+            self.assertEqual(result.mode, "preserve-text:150dpi:q75")
+            self.assertEqual(commands[0][0], "fake-qpdf")
+            self.assertEqual(commands[1][0], "fake-gs")
+
+    def test_grayscale_pdf_skips_qpdf_and_mutool_cleanup(self) -> None:
+        with tempfile.TemporaryDirectory() as temp_dir:
+            root = Path(temp_dir)
+            source = root / "large.pdf"
+            output = root / "out.pdf"
+            source.write_bytes(b"x" * 5000)
+            commands: list[list[str]] = []
+
+            def fake_runner(command: list[str]) -> subprocess.CompletedProcess[str]:
+                commands.append(command)
+                output_path_from(command).write_bytes(b"p" * 900)
+                return completed()
+
+            with patch(
+                "salbotics_filecompressor.compressor.find_qpdf",
+                return_value=Path("fake-qpdf"),
+            ), patch(
+                "salbotics_filecompressor.compressor.find_mutool",
+                return_value=Path("fake-mutool"),
+            ):
+                result = compress_file(
+                    source,
+                    output,
+                    CompressionOptions(target_kb=1, grayscale=True),
+                    gs_path="fake-gs",
+                    run_command=fake_runner,
+                )
+
+            self.assertEqual(result.status, "success")
+            self.assertEqual(result.mode, "preserve-text:150dpi:q75")
+            self.assertTrue(commands)
+            self.assertTrue(all(command[0] == "fake-gs" for command in commands))
 
     def test_selects_first_preserve_candidate_under_target(self) -> None:
         with tempfile.TemporaryDirectory() as temp_dir:

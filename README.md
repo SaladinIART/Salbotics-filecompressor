@@ -30,11 +30,17 @@ Current support:
 - Tkinter, included with normal Python installs
 - Pillow, installed through package dependencies
 - Ghostscript installed separately for real PDF compression
+- Optional: qpdf and MuPDF mutool for safe PDF cleanup before Ghostscript
 
 Ghostscript can be found from `gswin64c`, `gswin32c`, `gs`, a normal Windows
 install under `C:\Program Files\gs`, or the `SALBOTICS_FILECOMPRESSOR_GS`
 environment variable. The legacy `PDF499_GS` variable is accepted during the
 prototype migration period.
+
+qpdf and mutool are detected from `PATH` or from
+`SALBOTICS_FILECOMPRESSOR_QPDF` and `SALBOTICS_FILECOMPRESSOR_MUTOOL`. They are
+not required; if missing or unable to produce a usable result, the app falls
+back to Ghostscript.
 
 ## Install for Development
 
@@ -66,9 +72,10 @@ By default, files already under the target are copied. Add `--force-optimize`
 to optimize them anyway.
 
 `--list-engines` shows detected local engines such as Pillow, Ghostscript,
-qpdf, MuPDF mutool, ImageMagick, libvips, and LibreOffice. CP6.1 only lists
-capabilities; later checkpoints will route compression through these optional
-engines.
+qpdf, MuPDF mutool, ImageMagick, libvips, and LibreOffice. qpdf and mutool are
+used as optional safe PDF cleanup passes before Ghostscript when available.
+ImageMagick, libvips, and LibreOffice are discovery-only for future
+checkpoints.
 
 For local source runs without installing entry points:
 
@@ -132,9 +139,10 @@ The Windows ZIP contains:
 
 Project code is MIT licensed. See `LICENSE`.
 
-Salbotics File Compressor uses Ghostscript as its PDF compression backend.
+Salbotics File Compressor uses Ghostscript as its main PDF compression backend.
 Ghostscript is developed and licensed by Artifex Software, Inc. Ghostscript is
 not bundled with this project, and this project is not endorsed by Artifex.
+Optional PDF cleanup can use qpdf or MuPDF mutool when installed locally.
 
 Image compression uses Pillow.
 

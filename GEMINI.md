@@ -8,7 +8,7 @@ file.
 
 ## Current Checkpoint
 
-CP6.2 added force optimize and quality modes:
+CP6.3 added optional qpdf/mutool PDF cleanup:
 
 - project root: `C:\Users\salbot01\Salbotics\Salbotics-filecompressor`
 - Python package: `salbotics_filecompressor`
@@ -22,9 +22,11 @@ CP6.2 added force optimize and quality modes:
 - Default behavior still copies under-target files unless force optimize is on.
 - Smart mode tries gentler near-target image/PDF candidates first.
 - Safe PDF mode avoids raster fallback.
-- Current compression routing is unchanged: Ghostscript for PDFs and Pillow for
-  JPG/JPEG/PNG.
-- Optional engines are discovery-only until CP6.3+.
+- PDF routing now tries qpdf cleanup, then mutool cleanup, then Ghostscript.
+- qpdf/mutool cleanup is skipped when grayscale is requested because those
+  tools do not perform color conversion.
+- Image routing remains Pillow for JPG/JPEG/PNG.
+- ImageMagick, libvips, and LibreOffice are discovery-only until CP6.4+.
 - Tests pass.
 
 ## Canonical Terms
@@ -33,6 +35,8 @@ CP6.2 added force optimize and quality modes:
 - `preserve-text pass`: Ghostscript `pdfwrite` compression that keeps text
   selectable when possible.
 - `raster fallback`: render PDF pages as images, then rebuild an image-only PDF.
+- `PDF cleanup pass`: qpdf or mutool structural cleanup that may shrink a PDF
+  without rasterizing or changing color.
 - `best effort`: save the best readable output even when target is missed.
 
 ## Decisions Locked
@@ -41,6 +45,7 @@ CP6.2 added force optimize and quality modes:
 - Tkinter GUI.
 - CLI plus GUI.
 - Ghostscript required for real PDF compression.
+- qpdf/mutool are optional and must not be required to run the app.
 - Ghostscript is credited to Artifex Software, Inc.; do not imply endorsement.
 - Ghostscript is not bundled.
 - Default target is 499 KB, editable by user.
@@ -49,14 +54,14 @@ CP6.2 added force optimize and quality modes:
 - JPG/JPEG/PNG supported in v1.
 - Image output mode is user-selectable: same format or PDF.
 
-## Next Checkpoint: CP6.3
+## Next Checkpoint: CP6.4
 
-CP6.3 should route PDF cleanup through detected qpdf/mutool when available.
+CP6.4 should add broader image-format routing through optional engines.
 
-## CP6.3 Master List
+## CP6.4 Master List
 
-- Add qpdf/mutool adapters behind engine registry.
-- Try safe PDF cleanup before Ghostscript when tools exist.
-- Preserve current Ghostscript fallback behavior.
-- Add fake-runner tests for command construction and fallback.
-- Preserve current PDF/image tests.
+- Choose whether ImageMagick or libvips is the first optional engine.
+- Add adapters for at least WebP/BMP/TIFF input.
+- Keep Pillow as the built-in JPG/JPEG/PNG path.
+- Add GUI file picker patterns for new formats only after runtime support exists.
+- Preserve current PDF and image tests.

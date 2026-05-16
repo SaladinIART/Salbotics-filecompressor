@@ -11,7 +11,7 @@ from typing import Callable, Iterable, Mapping, Sequence
 
 from PIL import __version__ as PILLOW_VERSION
 
-from .compressor import find_ghostscript
+from .compressor import find_ghostscript, find_mutool, find_qpdf
 
 
 ENGINE_CAPABILITIES: Mapping[str, tuple[str, ...]] = {
@@ -66,21 +66,27 @@ def detect_engines(*, which: Which | None = None) -> list[EngineInfo]:
     return [
         _pillow_engine(),
         _ghostscript_engine(),
-        _command_engine(
+        _optional_path_engine(
             name="qpdf",
             display_name="qpdf",
-            executable_names=("qpdf",),
-            which=finder,
+            path_finder=(
+                find_qpdf
+                if which is None
+                else lambda: _find_executable(("qpdf",), finder)
+            ),
             version_args=("--version",),
             input_extensions=PDF_INPUTS,
             output_extensions=PDF_INPUTS,
             unavailable_note="Install qpdf for safe PDF stream/object cleanup.",
         ),
-        _command_engine(
+        _optional_path_engine(
             name="mutool",
             display_name="MuPDF mutool",
-            executable_names=("mutool",),
-            which=finder,
+            path_finder=(
+                find_mutool
+                if which is None
+                else lambda: _find_executable(("mutool",), finder)
+            ),
             version_args=("-v",),
             input_extensions=PDF_INPUTS,
             output_extensions=PDF_INPUTS,
@@ -216,6 +222,40 @@ def _command_engine(
     unavailable_note: str,
 ) -> EngineInfo:
     path = _find_executable(executable_names, which)
+    if path is None:
+        return EngineInfo(
+            name=name,
+            display_name=display_name,
+            available=False,
+            capabilities=ENGINE_CAPABILITIES[name],
+            input_extensions=tuple(input_extensions),
+            output_extensions=tuple(output_extensions),
+            note=unavailable_note,
+        )
+
+    return EngineInfo(
+        name=name,
+        display_name=display_name,
+        available=True,
+        capabilities=ENGINE_CAPABILITIES[name],
+        input_extensions=tuple(input_extensions),
+        output_extensions=tuple(output_extensions),
+        path=path,
+        version=_read_version(path, version_args),
+    )
+
+
+def _optional_path_engine(
+    *,
+    name: str,
+    display_name: str,
+    path_finder: Callable[[], Path | None],
+    version_args: Sequence[str],
+    input_extensions: Sequence[str],
+    output_extensions: Sequence[str],
+    unavailable_note: str,
+) -> EngineInfo:
+    path = path_finder()
     if path is None:
         return EngineInfo(
             name=name,
