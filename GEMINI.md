@@ -8,7 +8,7 @@ file.
 
 ## Current Checkpoint
 
-CP6.1 added engine discovery:
+CP6.2 added force optimize and quality modes:
 
 - project root: `C:\Users\salbot01\Salbotics\Salbotics-filecompressor`
 - Python package: `salbotics_filecompressor`
@@ -17,9 +17,14 @@ CP6.1 added engine discovery:
 - `engine_registry.py` detects Pillow, Ghostscript, qpdf, mutool, ImageMagick,
   libvips, and LibreOffice.
 - CLI exposes `--list-engines` and `--list-formats`.
+- CLI exposes `--force-optimize` and `--quality-mode safe|smart|aggressive`.
+- GUI exposes Force optimize and Safe/Smart/Aggressive quality mode controls.
+- Default behavior still copies under-target files unless force optimize is on.
+- Smart mode tries gentler near-target image/PDF candidates first.
+- Safe PDF mode avoids raster fallback.
 - Current compression routing is unchanged: Ghostscript for PDFs and Pillow for
   JPG/JPEG/PNG.
-- Optional engines are discovery-only until CP6.2+.
+- Optional engines are discovery-only until CP6.3+.
 - Tests pass.
 
 ## Canonical Terms
@@ -44,14 +49,14 @@ CP6.1 added engine discovery:
 - JPG/JPEG/PNG supported in v1.
 - Image output mode is user-selectable: same format or PDF.
 
-## Next Checkpoint: CP6.2
+## Next Checkpoint: CP6.3
 
-CP6.2 should add smart compression modes and force optimize.
+CP6.3 should route PDF cleanup through detected qpdf/mutool when available.
 
-## CP6.2 Master List
+## CP6.3 Master List
 
-- Add `force_optimize` and quality mode options.
-- Keep under-target copy behavior unless force optimize is enabled.
-- Add near-target smart optimization before full recompression.
-- Update GUI with simple Force optimize and Safe/Smart/Aggressive controls.
+- Add qpdf/mutool adapters behind engine registry.
+- Try safe PDF cleanup before Ghostscript when tools exist.
+- Preserve current Ghostscript fallback behavior.
+- Add fake-runner tests for command construction and fallback.
 - Preserve current PDF/image tests.

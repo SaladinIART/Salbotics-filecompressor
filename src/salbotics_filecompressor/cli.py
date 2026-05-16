@@ -10,6 +10,9 @@ from .compressor import (
     DEFAULT_TARGET_KB,
     IMAGE_OUTPUT_PDF,
     IMAGE_OUTPUT_SAME_FORMAT,
+    QUALITY_AGGRESSIVE,
+    QUALITY_SAFE,
+    QUALITY_SMART,
     CompressionOptions,
     CompressionResult,
     compress_batch,
@@ -66,6 +69,17 @@ def build_parser() -> argparse.ArgumentParser:
             "Output format for image inputs. "
             f"Default: {IMAGE_OUTPUT_SAME_FORMAT}."
         ),
+    )
+    parser.add_argument(
+        "--force-optimize",
+        action="store_true",
+        help="Optimize even when the file is already under the target size.",
+    )
+    parser.add_argument(
+        "--quality-mode",
+        choices=[QUALITY_SAFE, QUALITY_SMART, QUALITY_AGGRESSIVE],
+        default=QUALITY_SMART,
+        help=f"Compression strategy. Default: {QUALITY_SMART}.",
     )
     parser.add_argument(
         "--list-engines",
@@ -126,6 +140,8 @@ def main(argv: list[str] | None = None) -> int:
         target_kb=args.target_kb,
         grayscale=args.grayscale,
         image_output=args.image_output,
+        force_optimize=args.force_optimize,
+        quality_mode=args.quality_mode,
     )
 
     try:

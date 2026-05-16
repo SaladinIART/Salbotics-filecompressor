@@ -19,8 +19,17 @@ from .errors import CompressionFailedError, FileCompressorError, GhostscriptNotF
 DEFAULT_TARGET_KB = 499
 IMAGE_OUTPUT_SAME_FORMAT = "same-format"
 IMAGE_OUTPUT_PDF = "pdf"
+QUALITY_SAFE = "safe"
+QUALITY_SMART = "smart"
+QUALITY_AGGRESSIVE = "aggressive"
+QUALITY_MODES = frozenset({QUALITY_SAFE, QUALITY_SMART, QUALITY_AGGRESSIVE})
+NEAR_TARGET_RATIO = 1.15
 SUPPORTED_IMAGE_SUFFIXES = frozenset({".jpg", ".jpeg", ".png"})
 SUPPORTED_INPUT_SUFFIXES = frozenset({".pdf", *SUPPORTED_IMAGE_SUFFIXES})
+SAFE_PRESERVE_TEXT_CANDIDATES: tuple[tuple[int, int], ...] = (
+    (150, 85),
+    (120, 80),
+)
 PRESERVE_TEXT_CANDIDATES: tuple[tuple[int, int], ...] = (
     (150, 75),
     (120, 65),
@@ -35,6 +44,17 @@ RASTER_CANDIDATES: tuple[tuple[int, int], ...] = (
     (60, 30),
     (50, 25),
 )
+SAFE_IMAGE_CANDIDATES: tuple[tuple[float, int], ...] = (
+    (1.0, 92),
+    (1.0, 88),
+    (1.0, 85),
+)
+SMART_NEAR_TARGET_IMAGE_CANDIDATES: tuple[tuple[float, int], ...] = (
+    (1.0, 88),
+    (1.0, 85),
+    (0.95, 82),
+    (0.9, 80),
+)
 IMAGE_CANDIDATES: tuple[tuple[float, int], ...] = (
     (1.0, 85),
     (0.9, 80),
@@ -44,8 +64,14 @@ IMAGE_CANDIDATES: tuple[tuple[float, int], ...] = (
     (0.5, 60),
     (0.4, 55),
 )
+AGGRESSIVE_IMAGE_CANDIDATES: tuple[tuple[float, int], ...] = (
+    *IMAGE_CANDIDATES,
+    (0.35, 50),
+    (0.3, 45),
+)
 RunCommand = Callable[[Sequence[str]], subprocess.CompletedProcess[str]]
 ImageOutputMode = Literal["same-format", "pdf"]
+QualityMode = Literal["safe", "smart", "aggressive"]
 
 
 @dataclass(frozen=True, slots=True)
@@ -55,10 +81,14 @@ class CompressionOptions:
     target_kb: int = DEFAULT_TARGET_KB
     grayscale: bool = False
     image_output: ImageOutputMode = IMAGE_OUTPUT_SAME_FORMAT
+    force_optimize: bool = False
+    quality_mode: QualityMode = QUALITY_SMART
 
     def __post_init__(self) -> None:
         if self.image_output not in {IMAGE_OUTPUT_SAME_FORMAT, IMAGE_OUTPUT_PDF}:
             raise ValueError("image_output must be 'same-format' or 'pdf'")
+        if self.quality_mode not in QUALITY_MODES:
+            raise ValueError("quality_mode must be 'safe', 'smart', or 'aggressive'")
 
     @property
     def target_bytes(self) -> int:
@@ -169,6 +199,37 @@ def _candidate_size(path: Path) -> int | None:
     if path.exists() and path.is_file() and path.stat().st_size > 0:
         return path.stat().st_size
     return None
+
+
+def _is_near_target(size_bytes: int, target_bytes: int) -> bool:
+    return target_bytes < size_bytes <= int(target_bytes * NEAR_TARGET_RATIO)
+
+
+def _image_candidates_for(
+    options: CompressionOptions,
+    original_size: int,
+) -> tuple[tuple[float, int], ...]:
+    if options.quality_mode == QUALITY_SAFE:
+        return SAFE_IMAGE_CANDIDATES
+    if options.quality_mode == QUALITY_AGGRESSIVE:
+        return AGGRESSIVE_IMAGE_CANDIDATES
+    if _is_near_target(original_size, options.target_bytes):
+        return (*SMART_NEAR_TARGET_IMAGE_CANDIDATES, *IMAGE_CANDIDATES)
+    return IMAGE_CANDIDATES
+
+
+def _preserve_text_candidates_for(
+    options: CompressionOptions,
+    original_size: int,
+) -> tuple[tuple[int, int], ...]:
+    if options.quality_mode == QUALITY_SAFE:
+        return SAFE_PRESERVE_TEXT_CANDIDATES
+    if options.quality_mode == QUALITY_SMART and _is_near_target(
+        original_size,
+        options.target_bytes,
+    ):
+        return (*SAFE_PRESERVE_TEXT_CANDIDATES, *PRESERVE_TEXT_CANDIDATES)
+    return PRESERVE_TEXT_CANDIDATES
 
 
 def _invoke(command: Sequence[str], run_command: RunCommand) -> None:
@@ -368,6 +429,7 @@ def _try_image_candidates(
     input_path: Path,
     work_dir: Path,
     options: CompressionOptions,
+    original_size: int,
 ) -> list[_CandidateResult]:
     results: list[_CandidateResult] = []
     source_suffix = input_path.suffix.lower()
@@ -376,7 +438,7 @@ def _try_image_candidates(
     try:
         with Image.open(input_path) as image:
             image.load()
-            for scale, quality in IMAGE_CANDIDATES:
+            for scale, quality in _image_candidates_for(options, original_size):
                 scale_label = int(scale * 100)
                 candidate = work_dir / f"image-{scale_label}-{quality}{output_suffix}"
                 try:
@@ -419,9 +481,10 @@ def _try_preserve_text(
     work_dir: Path,
     options: CompressionOptions,
     run_command: RunCommand,
+    original_size: int,
 ) -> list[_CandidateResult]:
     results: list[_CandidateResult] = []
-    for dpi, quality in PRESERVE_TEXT_CANDIDATES:
+    for dpi, quality in _preserve_text_candidates_for(options, original_size):
         candidate = work_dir / f"preserve-{dpi}-{quality}.pdf"
         try:
             _invoke(
@@ -553,7 +616,7 @@ def _compress_pdf_file(
     destination.parent.mkdir(parents=True, exist_ok=True)
 
     original_size = source.stat().st_size
-    if original_size <= selected_options.target_bytes:
+    if original_size <= selected_options.target_bytes and not selected_options.force_optimize:
         shutil.copy2(source, destination)
         return CompressionResult(
             input_path=source,
@@ -568,16 +631,28 @@ def _compress_pdf_file(
     with tempfile.TemporaryDirectory(prefix="salbotics-filecompressor-") as temp_dir:
         work_dir = Path(temp_dir)
         candidates = _try_preserve_text(
-            ghostscript, source, work_dir, selected_options, runner
+            ghostscript, source, work_dir, selected_options, runner, original_size
         )
 
-        if not any(candidate.size_bytes <= selected_options.target_bytes for candidate in candidates):
+        if (
+            selected_options.quality_mode != QUALITY_SAFE
+            and not any(
+                candidate.size_bytes <= selected_options.target_bytes
+                for candidate in candidates
+            )
+        ):
             candidates.extend(
                 _try_raster(ghostscript, source, work_dir, selected_options, runner)
             )
 
         selected, status, warning = _choose_candidate(candidates, selected_options.target_bytes)
         shutil.copy2(selected.path, destination)
+
+    result_status = "optimized" if original_size <= selected_options.target_bytes else status
+    result_warning = warning
+    if result_status == "optimized" and destination.stat().st_size > original_size:
+        result_status = "warning"
+        result_warning = "force optimize produced a larger file; saved smallest candidate"
 
     return CompressionResult(
         input_path=source,
@@ -586,8 +661,8 @@ def _compress_pdf_file(
         final_size_bytes=destination.stat().st_size,
         target_size_bytes=selected_options.target_bytes,
         mode=f"{selected.mode}:{selected.dpi}dpi:q{selected.quality}",
-        status=status,
-        warning=warning,
+        status=result_status,
+        warning=result_warning,
     )
 
 
@@ -603,6 +678,7 @@ def _compress_image_file(
     if (
         selected_options.image_output == IMAGE_OUTPUT_SAME_FORMAT
         and original_size <= selected_options.target_bytes
+        and not selected_options.force_optimize
     ):
         shutil.copy2(source, destination)
         return CompressionResult(
@@ -617,11 +693,16 @@ def _compress_image_file(
 
     with tempfile.TemporaryDirectory(prefix="salbotics-filecompressor-image-") as temp_dir:
         work_dir = Path(temp_dir)
-        candidates = _try_image_candidates(source, work_dir, selected_options)
+        candidates = _try_image_candidates(source, work_dir, selected_options, original_size)
         selected, status, warning = _choose_candidate(candidates, selected_options.target_bytes)
         shutil.copy2(selected.path, destination)
 
     mode = f"{selected.mode}:{selected.dpi}%:q{selected.quality}"
+    result_status = "optimized" if original_size <= selected_options.target_bytes else status
+    result_warning = warning
+    if result_status == "optimized" and destination.stat().st_size > original_size:
+        result_status = "warning"
+        result_warning = "force optimize produced a larger file; saved smallest candidate"
     return CompressionResult(
         input_path=source,
         output_path=destination,
@@ -629,9 +710,10 @@ def _compress_image_file(
         final_size_bytes=destination.stat().st_size,
         target_size_bytes=selected_options.target_bytes,
         mode=mode,
-        status=status,
-        warning=warning,
+        status=result_status,
+        warning=result_warning,
     )
+
 
 def compress_file(
     input_path: str | Path,

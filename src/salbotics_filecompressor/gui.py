@@ -12,6 +12,9 @@ from .compressor import (
     DEFAULT_TARGET_KB,
     IMAGE_OUTPUT_PDF,
     IMAGE_OUTPUT_SAME_FORMAT,
+    QUALITY_AGGRESSIVE,
+    QUALITY_SAFE,
+    QUALITY_SMART,
     CompressionOptions,
     compress_batch,
     compress_file,
@@ -39,6 +42,8 @@ class SalboticsFileCompressorApp(tk.Tk):
         self.target_kb = tk.StringVar(value=str(DEFAULT_TARGET_KB))
         self.grayscale = tk.BooleanVar(value=False)
         self.image_output = tk.StringVar(value=IMAGE_OUTPUT_SAME_FORMAT)
+        self.force_optimize = tk.BooleanVar(value=False)
+        self.quality_mode = tk.StringVar(value=QUALITY_SMART)
         self.status = tk.StringVar(value=READY_MESSAGE)
         self._result_queue: queue.Queue[tuple[str, list[object] | str]] = queue.Queue()
 
@@ -82,9 +87,22 @@ class SalboticsFileCompressorApp(tk.Tk):
             row=4, column=1, sticky="w", pady=6
         )
 
-        ttk.Label(root, text="Image output").grid(row=5, column=0, sticky="w", pady=6)
+        ttk.Checkbutton(root, text="Force optimize", variable=self.force_optimize).grid(
+            row=5, column=1, sticky="w", pady=6
+        )
+
+        ttk.Label(root, text="Quality mode").grid(row=6, column=0, sticky="w", pady=6)
+        ttk.Combobox(
+            root,
+            textvariable=self.quality_mode,
+            values=(QUALITY_SAFE, QUALITY_SMART, QUALITY_AGGRESSIVE),
+            state="readonly",
+            width=14,
+        ).grid(row=6, column=1, sticky="w", pady=6)
+
+        ttk.Label(root, text="Image output").grid(row=7, column=0, sticky="w", pady=6)
         image_output_frame = ttk.Frame(root)
-        image_output_frame.grid(row=5, column=1, sticky="w", pady=6)
+        image_output_frame.grid(row=7, column=1, sticky="w", pady=6)
         ttk.Radiobutton(
             image_output_frame,
             text="Same format",
@@ -99,12 +117,12 @@ class SalboticsFileCompressorApp(tk.Tk):
         ).grid(row=0, column=1)
 
         self.compress_button = ttk.Button(root, text="Compress", command=self._compress)
-        self.compress_button.grid(row=6, column=1, sticky="w", pady=(18, 8))
+        self.compress_button.grid(row=8, column=1, sticky="w", pady=(18, 8))
 
         self.progress = ttk.Progressbar(root, mode="indeterminate")
-        self.progress.grid(row=7, column=0, columnspan=3, sticky="ew", pady=(10, 8))
+        self.progress.grid(row=9, column=0, columnspan=3, sticky="ew", pady=(10, 8))
 
-        ttk.Label(root, textvariable=self.status).grid(row=8, column=0, columnspan=3, sticky="w")
+        ttk.Label(root, textvariable=self.status).grid(row=10, column=0, columnspan=3, sticky="w")
 
         columns = ("file", "status", "original", "final", "mode", "note")
         self.results_table = ttk.Treeview(root, columns=columns, show="headings", height=8)
@@ -127,8 +145,8 @@ class SalboticsFileCompressorApp(tk.Tk):
         for column in columns:
             self.results_table.heading(column, text=headings[column])
             self.results_table.column(column, width=widths[column], anchor="w")
-        self.results_table.grid(row=9, column=0, columnspan=3, sticky="nsew", pady=(10, 0))
-        root.rowconfigure(9, weight=1)
+        self.results_table.grid(row=11, column=0, columnspan=3, sticky="nsew", pady=(10, 0))
+        root.rowconfigure(11, weight=1)
 
     def _browse_input(self) -> None:
         if self.mode.get() == "folder":
@@ -187,6 +205,8 @@ class SalboticsFileCompressorApp(tk.Tk):
             target_kb=target_kb,
             grayscale=self.grayscale.get(),
             image_output=self.image_output.get(),
+            force_optimize=self.force_optimize.get(),
+            quality_mode=self.quality_mode.get(),
         )
         return Path(self.input_path.get()), Path(self.output_dir.get()), options, self.mode.get()
 

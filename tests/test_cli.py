@@ -19,6 +19,22 @@ class CliParserTests(unittest.TestCase):
 
         self.assertEqual(args.image_output, "pdf")
 
+    def test_quality_mode_and_force_optimize_parse(self) -> None:
+        parser = build_parser()
+        args = parser.parse_args(
+            [
+                "input.png",
+                "-o",
+                "output.png",
+                "--force-optimize",
+                "--quality-mode",
+                "aggressive",
+            ]
+        )
+
+        self.assertTrue(args.force_optimize)
+        self.assertEqual(args.quality_mode, "aggressive")
+
     def test_list_engines_exits_without_input_file(self) -> None:
         with patch(
             "salbotics_filecompressor.cli.format_engine_table",

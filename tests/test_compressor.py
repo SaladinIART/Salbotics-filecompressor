@@ -12,10 +12,13 @@ from PIL import Image
 from salbotics_filecompressor.compressor import (
     IMAGE_OUTPUT_PDF,
     IMAGE_OUTPUT_SAME_FORMAT,
+    QUALITY_SAFE,
+    QUALITY_SMART,
     CompressionOptions,
     compress_batch,
     compress_file,
     find_ghostscript,
+    _image_candidates_for,
 )
 from salbotics_filecompressor.errors import GhostscriptNotFoundError
 
@@ -34,6 +37,10 @@ def output_path_from(command: list[str]) -> Path:
 class CompressionEngineTests(unittest.TestCase):
     def test_target_bytes_uses_binary_kilobytes(self) -> None:
         self.assertEqual(CompressionOptions().target_bytes, 499 * 1024)
+
+    def test_invalid_quality_mode_is_rejected(self) -> None:
+        with self.assertRaises(ValueError):
+            CompressionOptions(quality_mode="reckless")  # type: ignore[arg-type]
 
     def test_missing_ghostscript_has_actionable_message(self) -> None:
         with patch.dict("os.environ", {}, clear=True), patch(
@@ -80,6 +87,63 @@ class CompressionEngineTests(unittest.TestCase):
             self.assertEqual(result.status, "already-under-target")
             self.assertEqual(result.mode, "copy")
             self.assertEqual(output.read_bytes(), source.read_bytes())
+
+    def test_force_optimize_does_not_copy_small_image(self) -> None:
+        with tempfile.TemporaryDirectory() as temp_dir:
+            root = Path(temp_dir)
+            source = root / "small.jpg"
+            output = root / "out.jpg"
+            image = Image.effect_noise((300, 300), 80).convert("RGB")
+            image.save(source, "JPEG", quality=95)
+            image.close()
+
+            result = compress_file(
+                source,
+                output,
+                CompressionOptions(
+                    target_kb=499,
+                    force_optimize=True,
+                    image_output=IMAGE_OUTPUT_SAME_FORMAT,
+                ),
+            )
+
+            self.assertNotEqual(output.read_bytes(), source.read_bytes())
+            self.assertIn(result.status, {"optimized", "warning"})
+            self.assertTrue(result.mode.startswith("image:"))
+
+    def test_smart_near_target_image_candidates_start_gently(self) -> None:
+        options = CompressionOptions(target_kb=100, quality_mode=QUALITY_SMART)
+
+        candidates = _image_candidates_for(options, original_size=110 * 1024)
+
+        self.assertEqual(candidates[0], (1.0, 88))
+        self.assertIn((0.95, 82), candidates)
+
+    def test_safe_pdf_mode_skips_raster_fallback(self) -> None:
+        with tempfile.TemporaryDirectory() as temp_dir:
+            root = Path(temp_dir)
+            source = root / "large.pdf"
+            output = root / "out.pdf"
+            source.write_bytes(b"x" * 5000)
+            commands: list[list[str]] = []
+
+            def fake_runner(command: list[str]) -> subprocess.CompletedProcess[str]:
+                commands.append(command)
+                target = output_path_from(command)
+                target.write_bytes(b"p" * 3000)
+                return completed()
+
+            result = compress_file(
+                source,
+                output,
+                CompressionOptions(target_kb=1, quality_mode=QUALITY_SAFE),
+                gs_path="fake-gs",
+                run_command=fake_runner,
+            )
+
+            self.assertEqual(result.status, "warning")
+            self.assertTrue(commands)
+            self.assertTrue(all("-sDEVICE=pdfwrite" in command for command in commands))
 
     def test_selects_first_preserve_candidate_under_target(self) -> None:
         with tempfile.TemporaryDirectory() as temp_dir:
@@ -269,9 +333,10 @@ class CompressionEngineTests(unittest.TestCase):
             )
 
             self.assertEqual(
-                [result.status for result in results],
-                ["already-under-target", "success", "skipped"],
+                [results[0].status, results[2].status],
+                ["already-under-target", "skipped"],
             )
+            self.assertIn(results[1].status, {"success", "warning"})
             self.assertTrue((output_dir / "doc_compressed.pdf").exists())
             self.assertTrue((output_dir / "photo_compressed.pdf").exists())
             self.assertFalse((output_dir / "notes.txt").exists())

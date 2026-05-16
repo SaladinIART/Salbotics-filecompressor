@@ -50,10 +50,20 @@ python -m pip install -e ".[dev]"
 salbotics-filecompressor input.pdf -o output.pdf --target-kb 499 --grayscale
 salbotics-filecompressor photo.jpg -o photo-small.jpg --target-kb 499
 salbotics-filecompressor photo.png -o photo.pdf --image-output pdf
+salbotics-filecompressor screenshot.png -o screenshot-small.png --force-optimize --quality-mode smart
 salbotics-filecompressor --batch-folder "C:\Files" --output-dir "C:\Compressed" --target-kb 499
 salbotics-filecompressor --list-engines
 salbotics-filecompressor --list-formats
 ```
+
+Quality modes:
+
+- `safe`: gentle optimization only, avoids deeper fallback passes.
+- `smart`: default; tries low-damage near-target candidates first.
+- `aggressive`: adds stronger image candidates when size matters most.
+
+By default, files already under the target are copied. Add `--force-optimize`
+to optimize them anyway.
 
 `--list-engines` shows detected local engines such as Pillow, Ghostscript,
 qpdf, MuPDF mutool, ImageMagick, libvips, and LibreOffice. CP6.1 only lists
@@ -75,8 +85,9 @@ python -m salbotics_filecompressor.gui
 ```
 
 Choose single-file or folder mode, select an output folder, set the target KB,
-pick image output mode, and run compression. Results appear in the table after
-processing.
+pick quality mode and image output mode, then run compression. Use Force
+optimize when a file is already under target but you still want a smaller
+output. Results appear in the table after processing.
 
 ## Development Checks
 
