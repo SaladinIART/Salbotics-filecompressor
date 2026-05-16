@@ -15,3 +15,4 @@
 - Added GUI image output mode and supported file picker.
 - Added clean PyInstaller build script for Windows GUI and CLI executables.
 - Prepared first Windows release ZIP.
+- Added CP6.1 engine registry and CLI engine/format listing.

@@ -51,7 +51,14 @@ salbotics-filecompressor input.pdf -o output.pdf --target-kb 499 --grayscale
 salbotics-filecompressor photo.jpg -o photo-small.jpg --target-kb 499
 salbotics-filecompressor photo.png -o photo.pdf --image-output pdf
 salbotics-filecompressor --batch-folder "C:\Files" --output-dir "C:\Compressed" --target-kb 499
+salbotics-filecompressor --list-engines
+salbotics-filecompressor --list-formats
 ```
+
+`--list-engines` shows detected local engines such as Pillow, Ghostscript,
+qpdf, MuPDF mutool, ImageMagick, libvips, and LibreOffice. CP6.1 only lists
+capabilities; later checkpoints will route compression through these optional
+engines.
 
 For local source runs without installing entry points:
 

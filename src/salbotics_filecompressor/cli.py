@@ -16,6 +16,7 @@ from .compressor import (
     compress_file,
 )
 from .errors import FileCompressorError
+from .engine_registry import format_engine_table, format_supported_formats
 
 
 def build_parser() -> argparse.ArgumentParser:
@@ -66,6 +67,16 @@ def build_parser() -> argparse.ArgumentParser:
             f"Default: {IMAGE_OUTPUT_SAME_FORMAT}."
         ),
     )
+    parser.add_argument(
+        "--list-engines",
+        action="store_true",
+        help="List detected compression/conversion engines and exit.",
+    )
+    parser.add_argument(
+        "--list-formats",
+        action="store_true",
+        help="List currently supported input formats and exit.",
+    )
     return parser
 
 
@@ -93,13 +104,22 @@ def _validate_args(parser: argparse.ArgumentParser, args: argparse.Namespace) ->
             parser.error("--output-dir is only valid with --batch-folder")
         return
 
-    parser.error("provide input_pdf or --batch-folder")
+    parser.error("provide input_file or --batch-folder")
 
 
 def main(argv: list[str] | None = None) -> int:
     """Run the CLI."""
     parser = build_parser()
     args = parser.parse_args(argv)
+
+    if args.list_engines:
+        print(format_engine_table())
+        return 0
+
+    if args.list_formats:
+        print(format_supported_formats())
+        return 0
+
     _validate_args(parser, args)
 
     options = CompressionOptions(

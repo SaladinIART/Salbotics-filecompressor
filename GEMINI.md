@@ -8,22 +8,18 @@ file.
 
 ## Current Checkpoint
 
-CP5 prepared the first Windows release:
+CP6.1 added engine discovery:
 
 - project root: `C:\Users\salbot01\Salbotics\Salbotics-filecompressor`
 - Python package: `salbotics_filecompressor`
 - CLI command: `salbotics-filecompressor`
 - app display name: `Salbotics File Compressor`
-- PDF compression remains Ghostscript-backed.
-- JPG/JPEG/PNG same-format compression uses Pillow.
-- JPG/JPEG/PNG can output PDF.
-- Folder batches process PDFs and supported images.
-- Unsupported batch files are reported as `skipped`.
-- CLI exposes `--image-output same-format|pdf`.
-- GUI exposes image output mode and supported file picker.
-- Build script forces project-local `PYTHONPATH` during PyInstaller runs.
-- Release ZIP path: `release\salbotics-filecompressor-windows.zip`.
-- Packaged CLI smoke passed for JPG, image-to-PDF, and PDF compression.
+- `engine_registry.py` detects Pillow, Ghostscript, qpdf, mutool, ImageMagick,
+  libvips, and LibreOffice.
+- CLI exposes `--list-engines` and `--list-formats`.
+- Current compression routing is unchanged: Ghostscript for PDFs and Pillow for
+  JPG/JPEG/PNG.
+- Optional engines are discovery-only until CP6.2+.
 - Tests pass.
 
 ## Canonical Terms
@@ -48,14 +44,14 @@ CP5 prepared the first Windows release:
 - JPG/JPEG/PNG supported in v1.
 - Image output mode is user-selectable: same format or PDF.
 
-## Next Checkpoint: CP6
+## Next Checkpoint: CP6.2
 
-CP6 should improve release polish and user-facing packaging.
+CP6.2 should add smart compression modes and force optimize.
 
-## CP6 Master List
+## CP6.2 Master List
 
-- Test GUI manually on real user PDFs/images.
-- Consider a proper installer instead of ZIP-only distribution.
-- Add screenshots or a short user guide.
-- Decide whether to bundle or detect Ghostscript more visibly in GUI.
-- Consider adding automated GUI smoke testing.
+- Add `force_optimize` and quality mode options.
+- Keep under-target copy behavior unless force optimize is enabled.
+- Add near-target smart optimization before full recompression.
+- Update GUI with simple Force optimize and Safe/Smart/Aggressive controls.
+- Preserve current PDF/image tests.
