@@ -1,5 +1,16 @@
 # Changelog
 
+## 0.2.0 - 2026-05-16
+
+- Added engine registry and CLI engine/format listing.
+- Added force optimize and Safe/Smart/Aggressive quality modes.
+- Added optional qpdf/mutool PDF cleanup before Ghostscript fallback.
+- Added optional ImageMagick routing for WebP/BMP/TIFF images.
+- Added safeguards to keep originals when compression would be larger.
+- Added image smoke tests and release package verification checklist.
+- Added GUI result notes, engine readiness summary, and output-folder button.
+- Added verified Windows EXE/ZIP build and packaged CLI smoke validation.
+
 ## 0.1.0 - 2026-05-16
 
 - Migrated the original `pdf499` prototype into the centralized Salbotics
@@ -15,11 +26,3 @@
 - Added GUI image output mode and supported file picker.
 - Added clean PyInstaller build script for Windows GUI and CLI executables.
 - Prepared first Windows release ZIP.
-- Added CP6.1 engine registry and CLI engine/format listing.
-- Added CP6.2 force optimize and Safe/Smart/Aggressive quality modes.
-- Added CP6.3 optional qpdf/mutool PDF cleanup before Ghostscript fallback.
-- Added CP6.4 optional ImageMagick routing for WebP/BMP/TIFF images.
-- Added CP6.5 safeguards to keep originals when compression would be larger.
-- Added CP6.6 image smoke tests and release package verification checklist.
-- Added CP6.7 GUI result notes, engine readiness summary, and output-folder button.
-- Added CP6.8 verified Windows EXE/ZIP build and packaged CLI smoke validation.

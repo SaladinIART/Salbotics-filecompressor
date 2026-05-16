@@ -8,10 +8,11 @@ file.
 
 ## Current Checkpoint
 
-CP6.8 built and verified a fresh Windows release package:
+CP6.9 prepared the v0.2.0 public release:
 
 - project root: `C:\Users\salbot01\Salbotics\Salbotics-filecompressor`
 - Python package: `salbotics_filecompressor`
+- package version: `0.2.0`
 - CLI command: `salbotics-filecompressor`
 - app display name: `Salbotics File Compressor`
 - `engine_registry.py` detects Pillow, Ghostscript, qpdf, mutool, ImageMagick,
@@ -47,16 +48,18 @@ CP6.8 built and verified a fresh Windows release package:
 - GUI result rows show user-facing notes for target hits, copied originals,
   kept-original safeguards, warnings, skips, and failures.
 - GUI has an `Open output folder` button that enables after a successful run.
-- Fresh local package was built with `scripts/build_exe.ps1`.
+- Release target: `v0.2.0`.
+- Release notes live at `docs/releases/v0.2.0.md`.
+- Fresh v0.2.0 package was built with `scripts/build_exe.ps1`.
 - Package verifier passed for `release/salbotics-filecompressor-windows.zip`.
 - Frozen CLI smoke passed for `--list-engines`, `--list-formats`, and JPG
   compression.
 - Current package sizes:
-  - `dist/salbotics-filecompressor.exe`: 29,375,040 bytes.
-  - `dist/salbotics-filecompressor-cli.exe`: 26,274,701 bytes.
-  - `release/salbotics-filecompressor-windows.zip`: 55,190,151 bytes.
+  - `dist/salbotics-filecompressor.exe`: 29,374,992 bytes.
+  - `dist/salbotics-filecompressor-cli.exe`: 26,275,952 bytes.
+  - `release/salbotics-filecompressor-windows.zip`: 55,191,035 bytes.
 - Current ZIP SHA256:
-  `2DDB7787BB2F66E5196D015BC7C680815C43456C7C378E3C8E96416BA38136E5`.
+  `15942B15FDAA7BEFB20087C2A85AFC59D86497FF9F391C152FF7C854A1034BEB`.
 - libvips and LibreOffice are discovery-only until CP6.9+.
 - Tests pass.
 
@@ -97,14 +100,14 @@ CP6.8 built and verified a fresh Windows release package:
 - Image output mode is user-selectable: same format or PDF.
 - Same-format compression should not save a larger file over a smaller original.
 
-## Next Checkpoint: CP6.9
+## Next Checkpoint: CP7.0
 
-CP6.9 should prepare public release notes and publish the next GitHub release.
+CP7.0 should start the next milestone after v0.2.0 is published.
 
-## CP6.9 Master List
+## CP7.0 Master List
 
-- Decide the release tag, likely `v0.2.0`.
-- Draft release notes from CP6.1 through CP6.8.
-- Attach `release/salbotics-filecompressor-windows.zip`.
-- Include the ZIP SHA256 and external engine notes.
-- Verify GitHub release page and repo README after publishing.
+- Confirm the published v0.2.0 asset and SHA256.
+- Decide next milestone: Office conversion, better GUI workflow, or advanced
+  smart image optimization.
+- Create issues for the chosen milestone.
+- Keep v0.2.0 as the stable public baseline.
