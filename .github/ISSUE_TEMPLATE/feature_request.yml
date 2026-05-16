@@ -1,0 +1,24 @@
+name: Feature request
+description: Suggest an improvement or new supported file workflow.
+title: "[Feature]: "
+labels: ["enhancement"]
+body:
+  - type: textarea
+    id: problem
+    attributes:
+      label: Problem
+      description: What workflow should this improve?
+    validations:
+      required: true
+  - type: textarea
+    id: proposal
+    attributes:
+      label: Proposed behavior
+      description: What should the app do?
+    validations:
+      required: true
+  - type: input
+    id: filetypes
+    attributes:
+      label: File types
+      description: Example: PDF, JPG, JPEG, PNG.
